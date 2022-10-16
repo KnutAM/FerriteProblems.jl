@@ -68,10 +68,10 @@ jobs:
             packages = [
               PackageSpec(;url="https://github.com/KnutAM/FESolvers.jl.git"),
               PackageSpec(;url="https://github.com/KnutAM/FerriteAssembly.jl.git"),
-              PackageSpec(;url="https://github.com/KnutAM/FerriteNeumann.jl.git")
+              PackageSpec(;url="https://github.com/KnutAM/FerriteNeumann.jl.git"),
+              PackageSpec(path=pwd())
               ]
             Pkg.add(packages)
-            Pkg.develop(PackageSpec(path=pwd())) # dev FerriteProblems, hence false below
             Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-docdeploy@v1
