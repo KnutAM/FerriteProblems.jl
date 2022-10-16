@@ -3,7 +3,7 @@ using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
 
 include("J2Plasticity.jl");
 
-traction_function(t) = t*1.e7   ## N/m²
+traction_function(time) = time*1.e7 # N/m²
 
 function setup_problem_definition()
     # Define material properties
@@ -11,7 +11,7 @@ function setup_problem_definition()
     material = J2Plasticity(E, 0.3, 200.e6, E/20)
 
     # Mesh
-    L = 10.0; w = 1.0; h = 1.0  ## Dimensions
+    L = 10.0; w = 1.0; h = 1.0  # Dimensions
     n = 2
     nels = (10n, n, 2n)
     P1 = Vec((0.0, 0.0, 0.0))
@@ -50,7 +50,7 @@ function setup_problem_definition()
 
 
     return FEDefinition(dh, ch, nh, cv, material, states)
-end
+end;
 
 function FerriteAssembly.element_routine!(
     Ke::AbstractMatrix, re::AbstractVector,
@@ -67,15 +67,15 @@ function FerriteAssembly.element_routine!(
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
             δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
-            re[i] += (δϵ ⊡ σ) * dΩ ## add internal force to residual
-            for j in 1:i ## loop only over lower half
+            re[i] += (δϵ ⊡ σ) * dΩ # add internal force to residual
+            for j in 1:i # loop only over lower half
                 Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
                 Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
             end
         end
     end
     symmetrize_lower!(Ke)
-end
+end;
 
 function symmetrize_lower!(K)
     for i in 1:size(K,1)
@@ -83,31 +83,27 @@ function symmetrize_lower!(K)
             K[i,j] = K[j,i]
         end
     end
-end
+end;
 
 struct PlasticityPostProcess{T}
     tmag::Vector{T}
     umag::Vector{T}
 end
-PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[])
+PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 
 function FESolvers.postprocess!(p::FerriteProblem{<:PlasticityPostProcess}, step, solver)
-    # First, we do the simple postprocessing: Saving variables directly in the struct
+    # First, we save some values directly in the `post` struct
     push!(p.post.tmag, traction_function(FerriteProblems.gettime(p)))
     push!(p.post.umag, maximum(abs, FESolvers.getunknowns(p)))
 
-    # Second, we save the results to our results in each time step to file
+    # Second, we save some results to file
     # * We must always start by adding the next step.
     FerriteProblems.addstep!(p.io, FerriteProblems.gettime(p))
     # * Save the dof values (only displacments in this case)
     FerriteProblems.savedofdata!(p.io, FESolvers.getunknowns(p))
     # * Save the state in each integration point
     FerriteProblems.saveipdata!(p.io, FerriteProblems.getstate(p), "state")
-    # * We could save the maximum displacements and traction as
-    # FerriteProblems.saveglobaldata!(p.io, last(p.post.umag), "umag")
-    # FerriteProblems.saveglobaldata!(p.io, last(p.post.tmag), "tmag")
-    # But it is not necessary as the `PlasticityPostProcess` struct is also saved
-end
+end;
 
 function plot_results(problem::FerriteProblem{<:PlasticityPostProcess}; plt=plot(), label=nothing, markershape=:auto, markersize=4)
     umax = vcat(0.0, problem.post.umag)
@@ -125,7 +121,7 @@ function wrapped_solve!(solver, problem)
     finally
         FerriteProblems.close_problem(problem)
     end
-end
+end;
 
 function example_solution()
     def = setup_problem_definition()
@@ -156,7 +152,7 @@ function example_solution()
 end;
 
 plt, problem, solver = example_solution();
-display(plt)
+display(plt);
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
