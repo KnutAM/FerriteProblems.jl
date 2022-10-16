@@ -134,14 +134,14 @@ function example_solution()
 
     plt = plot_results(problem, label="uniform", markershape=:x, markersize=5)
 
-    # Same time steps as Ferrite example
+    # Same time steps as Ferrite example, overwrite results
     problem = makeproblem(def, "A")
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
     wrapped_solve!(solver, problem)
     plot_results(problem, plt=plt, label="fixed", markershape=:circle)
 
-    # Adaptive time stepping
-    problem = makeproblem(def, "C")
+    # Adaptive time stepping, save results to new folder
+    problem = makeproblem(def, "B")
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
     wrapped_solve!(solver, problem)
@@ -152,7 +152,6 @@ function example_solution()
 end;
 
 plt, problem, solver = example_solution();
-display(plt);
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
