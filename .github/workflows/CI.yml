@@ -36,12 +36,12 @@ jobs:
       - uses: julia-actions/cache@v1
       # - uses: julia-actions/julia-buildpkg@v1   # Replaced the following
       - run: |
-        julia --color=yes --project=. -e '
-          using Pkg
-          Pkg.add(url="https://github.com/KnutAM/FESolvers.jl.git")
-          Pkg.add(url="https://github.com/KnutAM/FerriteAssembly.jl.git")
-          Pkg.add(url="https://github.com/KnutAM/FerriteNeumann.jl.git")
-          Pkg.instantiate()'
+          julia --color=yes --project=. -e '
+            using Pkg
+            Pkg.add(url="https://github.com/KnutAM/FESolvers.jl.git")
+            Pkg.add(url="https://github.com/KnutAM/FerriteAssembly.jl.git")
+            Pkg.add(url="https://github.com/KnutAM/FerriteNeumann.jl.git")
+            Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
