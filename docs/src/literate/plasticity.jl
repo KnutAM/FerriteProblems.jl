@@ -6,8 +6,10 @@
 # time dependent loading.
 # 
 # First we need to load all required packages
-using Ferrite, Tensors, SparseArrays, LinearAlgebra, Plots
+using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
+
+using Plots, GR
 
 # We then define the material by including the definitions used in the original 
 # [example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/),
