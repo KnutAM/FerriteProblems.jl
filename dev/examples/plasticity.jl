@@ -143,7 +143,7 @@ function example_solution()
     # Adaptive time stepping
     problem = makeproblem(def, "C")
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
-    solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=4), ts)
+    solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
     wrapped_solve!(solver, problem)
 
     plot_results(problem, plt=plt, label="adaptive", markershape=:circle)
