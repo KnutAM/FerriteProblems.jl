@@ -1,5 +1,7 @@
-using Ferrite, Tensors, SparseArrays, LinearAlgebra, Plots
+using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
+
+using Plots; gr()
 
 include("J2Plasticity.jl");
 
