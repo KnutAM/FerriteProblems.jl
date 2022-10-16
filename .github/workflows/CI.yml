@@ -63,7 +63,7 @@ jobs:
           version: '1'
       # - uses: julia-actions/julia-buildpkg@v1   # Replaced the following
       - run: |
-          julia --color=yes --project=. -e '
+          julia --color=yes --project=docs -e '
             using Pkg
             packages = [
               PackageSpec(;url="https://github.com/KnutAM/FESolvers.jl.git"),
