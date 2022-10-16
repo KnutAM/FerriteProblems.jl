@@ -71,9 +71,12 @@ jobs:
               PackageSpec(;url="https://github.com/KnutAM/FerriteNeumann.jl.git")
               ]
             Pkg.add(packages)
+            Pkg.develop(PackageSpec(path=pwd())) # dev FerriteProblems, hence false below
             Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-docdeploy@v1
+        with:
+          install-package: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: |
