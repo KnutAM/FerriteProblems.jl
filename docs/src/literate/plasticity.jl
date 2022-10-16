@@ -9,7 +9,7 @@
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
 
-using Plots, GR
+using Plots; gr()
 
 # We then define the material by including the definitions used in the original 
 # [example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/),
