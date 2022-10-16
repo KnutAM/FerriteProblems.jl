@@ -17,22 +17,22 @@ include("J2Plasticity.jl");
 # ## Problem definition
 # We first create the problem's definition
 
-traction_function(t) = t*1.e7   # N/m²
+traction_function(t) = t*1.e7   ## N/m²
 
 function setup_problem_definition()
-    # Define material properties
+    ## Define material properties
     E = 200.0e9
     material = J2Plasticity(E, 0.3, 200.e6, E/20)
     
-    # Mesh
-    L = 10.0; w = 1.0; h = 1.0  # Dimensions
+    ## Mesh
+    L = 10.0; w = 1.0; h = 1.0  ## Dimensions
     n = 2
     nels = (10n, n, 2n)
     P1 = Vec((0.0, 0.0, 0.0))
     P2 = Vec((L, w, h))
     grid = generate_grid(Tetrahedron, nels, P1, P2)
     
-    # Interpolation and integration => FEValues
+    ## Interpolation and integration => FEValues
     interpolation = Lagrange{3, RefTetrahedron, 1}()
     ## setup quadrature rules
     qr      = QuadratureRule{3,RefTetrahedron}(2)
@@ -45,21 +45,21 @@ function setup_problem_definition()
     cv = CellVectorValues(qr, interpolation, interpolation_geom)
     fv = FaceVectorValues(face_qr, interpolation, interpolation_geom)
 
-    # Degrees of freedom
+    ## Degrees of freedom
     dh = DofHandler(grid)
     push!(dh, :u, 3, interpolation) # add a displacement field with 3 components
     close!(dh)
 
-    # Constraints (Dirichlet boundary conditions)
+    ## Constraints (Dirichlet boundary conditions)
     ch = ConstraintHandler(dh)
     add!(ch, Dirichlet(:u, getfaceset(grid, "left"), (x,t) -> [0.0, 0.0, 0.0], [1, 2, 3]))
     close!(ch)
 
-    # Neumann boundary conditions
+    ## Neumann boundary conditions
     nh = NeumannHandler(dh)
     add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
 
-    # Initial material states
+    ## Initial material states
     states = [ [J2PlasticityMaterialState() for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(grid)]
     
 
@@ -86,8 +86,8 @@ function FerriteAssembly.element_routine!(
         dΩ = getdetJdV(cellvalues, q_point)
         for i in 1:n_basefuncs
             δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
-            re[i] += (δϵ ⊡ σ) * dΩ # add internal force to residual
-            for j in 1:i # loop only over lower half
+            re[i] += (δϵ ⊡ σ) * dΩ ## add internal force to residual
+            for j in 1:i ## loop only over lower half
                 Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
                 Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
             end
@@ -166,7 +166,8 @@ function wrapped_solve!(solver, problem)
     end
 end
 
-# Finally, we can solve the problem with different time stepping strategies and plot the results
+# Finally, we can solve the problem with different time stepping strategies 
+# and plot the results
 function example_solution()
     def = setup_problem_definition()
     makeproblem(_def, folder) = FerriteProblem(_def, PlasticityPostProcess(), joinpath(pwd(), folder))
