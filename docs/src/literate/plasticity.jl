@@ -23,29 +23,15 @@ traction_function(time) = time*1.e7 # N/m²
 
 function setup_problem_definition()
     ## Define material properties
-    E = 200.0e9
-    material = J2Plasticity(E, 0.3, 200.e6, E/20)
+    material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
     
     ## Mesh
-    L = 10.0; w = 1.0; h = 1.0  # Dimensions
-    n = 2
-    nels = (10n, n, 2n)
-    P1 = Vec((0.0, 0.0, 0.0))
-    P2 = Vec((L, w, h))
-    grid = generate_grid(Tetrahedron, nels, P1, P2)
+    grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
     
-    ## Interpolation and integration => FEValues
+    ## Cell and facevalues
     interpolation = Lagrange{3, RefTetrahedron, 1}()
-    ## setup quadrature rules
-    qr      = QuadratureRule{3,RefTetrahedron}(2)
-    face_qr = QuadratureRule{2,RefTetrahedron}(3)
-
-    ## create geometric interpolation (use the same as for displacements)
-    interpolation_geom = Lagrange{3,RefTetrahedron,1}()
-
-    ## cell and facevalues
-    cv = CellVectorValues(qr, interpolation, interpolation_geom)
-    fv = FaceVectorValues(face_qr, interpolation, interpolation_geom)
+    cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
+    fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
 
     ## Degrees of freedom
     dh = DofHandler(grid)
@@ -63,7 +49,6 @@ function setup_problem_definition()
 
     ## Initial material states
     states = [ [J2PlasticityMaterialState() for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(grid)]
-    
 
     return FEDefinition(dh, ch, nh, cv, material, states)
 end;
