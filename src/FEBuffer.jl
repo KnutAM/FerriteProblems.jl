@@ -1,10 +1,10 @@
-struct FEBuffer{T,KT<:AbstractMatrix{T},CC,ST}
+struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST}
     K::KT
     x::Vector{T}
     r::Vector{T}
     f::Vector{T}
     xold::Vector{T}
-    cellcache::CC
+    cellbuffer::CB
     state::ST
     old_state::ST
     time::ScalarWrapper{T}
@@ -14,13 +14,13 @@ end
 function FEBuffer(def::FEDefinition)
     n = ndofs(getdh(def))
     K = create_sparsity_pattern(getdh(def))
-    x, r, f, xold = ntuple(_->zeros(n), 4)
-    cellcache = CellCache(getdh(def))
+    x, r, f, xold = (zeros(n) for _ in 1:4)
+    cellbuffer = CellBuffer(getdh(def), getcv(def), getmaterial(def), getbodyload(def), get_material_cache(def))
     state = deepcopy(def.initialstate)
     old_state = deepcopy(def.initialstate)
     time = ScalarWrapper(0.0)
     old_time = ScalarWrapper(0.0)
-    return FEBuffer(K, x, r, f, xold, cellcache, state, old_state, time, old_time)
+    return FEBuffer(K, x, r, f, xold, cellbuffer, state, old_state, time, old_time)
 end
 
 # Standard get functions
@@ -28,7 +28,7 @@ FESolvers.getjacobian(b::FEBuffer) = b.K
 FESolvers.getunknowns(b::FEBuffer) = b.x
 FESolvers.getresidual(b::FEBuffer) = b.r
 getneumannforce(b::FEBuffer) = b.f 
-getcellcache(b::FEBuffer) = b.cellcache
+getcellbuffer(b::FEBuffer) = b.cellbuffer
 
 # Variables that will also be updated via special functions
 # Unknowns 
@@ -42,9 +42,19 @@ getoldstate(b::FEBuffer) = b.old_state
 copy_states!(to::Tuple, from::Tuple) = copy_states!.(to, from)
 function copy_states!(to::T, from::T) where T<:Vector{<:Vector}
     for (toval, fromval) in zip(to, from)
-        copy!(toval, fromval)
+        copy_states!(toval, fromval)
     end
 end
+function copy_states!(to::T, from::T) where T<:Dict{Int,<:Vector}
+    for (key, fromval) in from
+        copy_states!(to[key], fromval)
+    end
+end
+@inline copy_states!(to::T, from::T) where T<:Vector{ET} where ET = copy_states!(Val{isbitstype(ET)}(), to, from)
+@inline copy_states!(::Val{true}, to::Vector, from::Vector) = copy!(to,from)
+@inline copy_states!(::Val{false}, to::Vector, from::Vector) = copy!(to,deepcopy(from))
+
+
 update_states!(b::FEBuffer) = copy_states!(b.old_state, getstate(b))
 reset_states!(b::FEBuffer) = copy_states!(b.state, getoldstate(b))
 

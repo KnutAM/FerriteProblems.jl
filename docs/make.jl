@@ -7,6 +7,7 @@ include("generate.jl")
 examples = ["plasticity.jl",]
 GENERATEDEXAMPLES = [joinpath("examples", replace(f, ".jl"=>".md")) for f in examples]
 
+# Build examples, see `generate.jl`
 build_examples(examples)
 
 DocMeta.setdocmeta!(FerriteProblems, :DocTestSetup, :(using FerriteProblems); recursive=true)
@@ -26,7 +27,11 @@ makedocs(;
         "Home" => "index.md",
         "Examples" => GENERATEDEXAMPLES,  
     ],
+    strict=Documenter.except(:missing_docs),
 )
+
+# Remove any generated files, see `generate.jl`
+remove_generalted_results(".vtu", ".pvd", ".jld2")
 
 deploydocs(;
     repo="github.com/KnutAM/FerriteProblems.jl",

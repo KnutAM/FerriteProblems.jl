@@ -109,7 +109,7 @@ end
 
 function new_file!(filesteps::Vector{Int}, datafiles::Vector{String}, folder::String)
     push!(filesteps, filesteps[end])
-    name = @sprintf("datafile_%05u", length(datafiles)+1)
+    name = @sprintf("datafile_%05u.jld2", length(datafiles)+1)
     push!(datafiles, name)
     return jldopen(joinpath(folder, name), "w")
 end

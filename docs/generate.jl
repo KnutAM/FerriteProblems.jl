@@ -1,6 +1,21 @@
 # generate examples
 import Literate
 
+# Recursive reading for deleting output files
+function readdir_recursive(args...)
+    items = readdir(args...; join=true)
+    subitems = eltype(items)[]
+    foreach(item->isdir(item) ? append!(subitems, readdir_recursive(item)) : nothing, items)
+    return append!(items, subitems)
+end
+function remove_generalted_results(args...)
+    should_delete(file) = any(endswith(file, ext) for ext in args)
+    for dirname in ("src", "build")
+        thedir = joinpath(@__DIR__, dirname, "examples")
+        foreach(file ->  should_delete(file) && rm(file), readdir_recursive(thedir))
+    end
+end
+
 function build_examples(examples)
     EXAMPLEDIR = joinpath(@__DIR__, "src", "literate")
     GENERATEDDIR = joinpath(@__DIR__, "src", "examples")
@@ -32,8 +47,4 @@ function build_examples(examples)
         Literate.notebook(input, GENERATEDDIR, execute = is_ci) # Don't execute locally
     end
 
-    cd(GENERATEDDIR) do
-        foreach(file -> endswith(file, ".vtu") && rm(file), readdir())
-        foreach(file -> endswith(file, ".pvd") && rm(file), readdir())
-    end
 end

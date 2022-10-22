@@ -4,6 +4,7 @@ using Printf
 using FileIO, JLD2
 using Ferrite
 using FESolvers, FerriteAssembly, FerriteNeumann
+using MaterialModelsBase
 import FESolvers: ScalarWrapper
 
 export FerriteProblem, FEDefinition
@@ -13,6 +14,7 @@ export getdofdata, getnodedata, getcelldata, getipdata, getglobaldata
 include("FEDefinition.jl")
 include("FEBuffer.jl")
 include("IO.jl")
+include("MaterialModelsBase.jl")
 
 struct FerriteProblem{POST,DEF<:FEDefinition,BUF<:FEBuffer,IOT}
     def::DEF
@@ -45,7 +47,7 @@ end
 
 for op = (
     :getoldunknowns, :update_unknowns!, 
-    :getneumannforce, :getcellcache, 
+    :getneumannforce, :getcellbuffer, 
     :gettime, :getoldtime, :update_time!,
     :getstate, :getoldstate, :update_states!, :reset_states!)
     eval(quote
@@ -92,7 +94,8 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa=nothing)
     K = FESolvers.getjacobian(p)
     r = FESolvers.getresidual(p)
     aold = getoldunknowns(p)
-    FerriteAssembly.doassemble!(K, r, a, aold, state, getdh(p), getcv(p), getmaterial(p), Δt, getcellcache(p))
+    assembler = start_assemble(K, r)
+    FerriteAssembly.doassemble!(assembler, getcellbuffer(p), state, getdh(p), a, aold, Δt)
     r .-= getneumannforce(p)
     apply_zero!(K, r, getch(p))
 end
