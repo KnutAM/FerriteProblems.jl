@@ -1,6 +1,8 @@
+using Ferrite, FerriteAssembly
 using FerriteProblems
 using Test
 
+
 @testset "FerriteProblems.jl" begin
-    # Write your tests here.
+    include("initialconditions.jl")
 end

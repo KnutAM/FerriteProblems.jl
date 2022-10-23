@@ -10,7 +10,9 @@ import FESolvers: ScalarWrapper
 export FerriteProblem, FEDefinition
 export savedofdata!, savenodedata!, savecelldata!, saveipdata!, saveglobaldata!
 export getdofdata, getnodedata, getcelldata, getipdata, getglobaldata
+export initial_conditions!
 
+include("initial_conditions.jl")    # Could maybe add tests and PR into Ferrite - but no time for that now...
 include("FEDefinition.jl")
 include("FEBuffer.jl")
 include("IO.jl")
