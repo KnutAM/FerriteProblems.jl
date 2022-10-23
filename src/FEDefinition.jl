@@ -1,4 +1,4 @@
-struct FEDefinition{DH,CH,NH,CV,M,BL,ST}
+struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC}
     # FE-handlers
     dh::DH  # DofHandler/MixedDofHandler
     ch::CH  # ConstraintHandler
@@ -9,14 +9,17 @@ struct FEDefinition{DH,CH,NH,CV,M,BL,ST}
     m::M    # material
     bl::BL  # body loads/source terms
     initialstate::ST
+    # Initial value of dofs 
+    ic::IC  # NamedTuple: (fieldname=f(x),)
 end
 function FEDefinition(;
     dh, ch, cv, m,          # Required for all simulations
     nh=NeumannHandler(dh),  # Can be just an empty handler
     bl=nothing,
-    initialstate=create_empty_states(dh,m)
+    initialstate=create_empty_states(dh,m),
+    ic=()
     )
-    return FEDefinition(dh, ch, nh, cv, m, bl, initialstate)
+    return FEDefinition(dh, ch, nh, cv, m, bl, initialstate, ic)
 end
 """
     FEDefinition(dh, ch, nh, cv, m, bl, initialstate)
@@ -87,6 +90,7 @@ getnh(def::FEDefinition) = def.nh
 getcv(def::FEDefinition) = def.cv
 getmaterial(def::FEDefinition) = def.m
 getbodyload(def::FEDefinition) = def.bl
+getic(def::FEDefinition) = def.ic
 
 # Material Cache, default to nothing
 get_material_cache(def::FEDefinition) = get_material_cache(getmaterial(def))

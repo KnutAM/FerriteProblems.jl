@@ -62,6 +62,7 @@ settime!(p::FerriteProblem, t) = settime!(p.buf, t)
 function close_problem(p::FerriteProblem)
     return close_problem(p.io, p.post)
 end
+close_problem(::Nothing, args...) = nothing # Do nothing if there is no io defined. 
 
 # Actual FE-"work"
 # * update_to_next_step!

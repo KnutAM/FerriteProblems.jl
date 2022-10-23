@@ -1,13 +1,10 @@
-# Initial conditions are experimental, and have not been tested very well (at all alsmote)
-# Use with caution!
-
 
 Ferrite.getfieldinterpolation(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].interpolation
 Ferrite.getfielddim(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].dim
 
 function _default_interpolations(dh::MixedDofHandler)
     fhs = dh.fieldhandlers
-    getcelltype(i) = typeof(getcells(dh.grid, fhs[i].cellset[1]))
+    getcelltype(i) = typeof(getcells(dh.grid, first(fhs[i].cellset)))
     ntuple(i->Ferrite.default_interpolation(getcelltype(i)), length(fhs))
 end
 
@@ -90,21 +87,3 @@ function initial_conditions!(a::Vector, dofs::Vector{Int}, coords::Vector{XT}, f
     end
     return a
 end
-
-
-# Old and limited implementation
-#=
-function initial_conditions!(a::AbstractVector, dh::DofHandler, field::Symbol, value::Number)
-    return initial_conditions!(a::AbstractVector, dh::DofHandler, field::Symbol, x -> value)
-end
-
-function initial_conditions!(a::AbstractVector, dh::DofHandler, field::Symbol, f::Function)
-    ch = ConstraintHandler(dh)
-    faceset = create_faceset(dh.grid, Set(1:getnnodes(dh.grid)))
-    add!(ch, Dirichlet(field, faceset, (x,t) -> f(x)))
-    close!(ch)
-    update!(ch, 0.0)
-    apply!(a, ch)
-end
-
-=#
