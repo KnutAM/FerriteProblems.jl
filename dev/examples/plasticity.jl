@@ -11,22 +11,18 @@ function setup_problem_definition()
     # Define material properties
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
 
-    # Mesh
-    grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
-
     # Cell and facevalues
     interpolation = Lagrange{3, RefTetrahedron, 1}()
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
     fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
 
-    # Degrees of freedom
-    dh = DofHandler(grid)
-    push!(dh, :u, 3, interpolation) # add a displacement field with 3 components
-    close!(dh)
+    # Grid and degrees of freedom
+    grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
+    dh = DofHandler(grid); push!(dh, :u, 3, interpolation); close!(dh)
 
     # Constraints (Dirichlet boundary conditions)
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(grid, "left"), (x,t) -> [0.0, 0.0, 0.0], [1, 2, 3]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, "left"), (x,t) -> zeros(3), [1, 2, 3]))
     close!(ch)
 
     # Neumann boundary conditions
@@ -34,17 +30,15 @@ function setup_problem_definition()
     add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
 
     # Initial material states
-    states = [ [J2PlasticityMaterialState() for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(grid)]
+    states = create_states(dh, x->J2PlasticityMaterialState(), cv)
 
-    return FEDefinition(dh, ch, nh, cv, material, states)
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
 end;
 
 function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector,
-    ue::AbstractVector, ae_old::AbstractVector,
-    state::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues,
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, materialcache
-    )
+    Ke::AbstractMatrix, re::AbstractVector, state::AbstractVector,
+    ue::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues,
+    args...)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
@@ -55,19 +49,10 @@ function FerriteAssembly.element_routine!(
         for i in 1:n_basefuncs
             δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
             re[i] += (δϵ ⊡ σ) * dΩ # add internal force to residual
-            for j in 1:i # loop only over lower half
+            for j in 1:n_basefuncs
                 Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
                 Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
             end
-        end
-    end
-    symmetrize_lower!(Ke)
-end;
-
-function symmetrize_lower!(K)
-    for i in 1:size(K,1)
-        for j in i+1:size(K,1)
-            K[i,j] = K[j,i]
         end
     end
 end;
@@ -92,7 +77,9 @@ function FESolvers.postprocess!(p::FerriteProblem{<:PlasticityPostProcess}, step
     FerriteProblems.saveipdata!(p.io, FerriteProblems.getstate(p), "state")
 end;
 
-function plot_results(problem::FerriteProblem{<:PlasticityPostProcess}; plt=plot(), label=nothing, markershape=:auto, markersize=4)
+function plot_results(problem::FerriteProblem{<:PlasticityPostProcess};
+    plt=plot(), label=nothing, markershape=:auto, markersize=4
+    )
     umax = vcat(0.0, problem.post.umag)
     tmag = vcat(0.0, problem.post.tmag)
     plot!(plt, umax, tmag, linewidth=0.5, title="Traction-displacement", label=label,
@@ -110,6 +97,8 @@ function wrapped_solve!(solver, problem)
     end
 end;
 
+global umax_solution = [0.0] # To save result for test #hide
+
 function example_solution()
     def = setup_problem_definition()
     makeproblem(_def, folder) = FerriteProblem(_def, PlasticityPostProcess(), joinpath(pwd(), folder))
@@ -123,9 +112,11 @@ function example_solution()
 
     # Same time steps as Ferrite example, overwrite results
     problem = makeproblem(def, "A")
+
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
     wrapped_solve!(solver, problem)
     plot_results(problem, plt=plt, label="fixed", markershape=:circle)
+    umax_solution[1] = problem.post.umag[end] # Save value for comparison  #hide
 
     # Adaptive time stepping, save results to new folder
     problem = makeproblem(def, "B")
@@ -139,6 +130,9 @@ function example_solution()
 end;
 
 plt, problem, solver = example_solution();
+
+using Test # Compare to Ferrite.jl's example #hide
+@test isapprox(umax_solution[1], 0.254452; rtol=1.e-4);  #hide
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

@@ -2,28 +2,24 @@
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Plasticity · FerriteProblems.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://KnutAM.github.io/FerriteProblems.jl/examples/plasticity/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteProblems.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Plasticity</a><ul class="internal"><li><a class="tocitem" href="#Problem-definition"><span>Problem definition</span></a></li><li><a class="tocitem" href="#Setup-postprocessing"><span>Setup postprocessing</span></a></li><li><a class="tocitem" href="#Solving-the-problem"><span>Solving the problem</span></a></li><li><a class="tocitem" href="#Plain-program"><span>Plain program</span></a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Plasticity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Plasticity</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/KnutAM/FerriteProblems.jl/blob/main/docs/src/literate/plasticity.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Plasticity"><a class="docs-heading-anchor" href="#Plasticity">Plasticity</a><a id="Plasticity-1"></a><a class="docs-heading-anchor-permalink" href="#Plasticity" title="Permalink"></a></h1><p>This example is taken from <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/">Ferrite.jl&#39;s plasticity example</a> and shows how <code>FerriteProblems</code> can be used to simplify the setup of this nonlinear problem with time dependent loading.</p><p>First we need to load all required packages</p><pre><code class="language-julia hljs">using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
 
-using Plots; gr()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Plots.GRBackend()</code></pre><p>We then define the material by including the definitions used in the original <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/">example</a>, by using the <a href="../J2Plasticity.jl">J2Plasticity.jl file</a></p><pre><code class="language-julia hljs">include(&quot;J2Plasticity.jl&quot;);</code></pre><h2 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h2><p>We first create the problem&#39;s definition</p><pre><code class="language-julia hljs">traction_function(time) = time*1.e7 # N/m²
+using Plots; gr()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Plots.GRBackend()</code></pre><p>We then define the material by including the definitions used in the original <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/">example</a>, by using the <a href="../J2Plasticity.jl">J2Plasticity.jl file</a></p><pre><code class="language-julia hljs">include(&quot;J2Plasticity.jl&quot;);</code></pre><p>This file defines the</p><ul><li><code>J2Plasticity</code> material type with the constructor <code>J2Plasticity(E,ν,σy0,H)</code></li><li>State variable struct with constructor <code>J2PlasticityMaterialState()</code></li><li><code>compute_stress_tangent(ϵ, material, old_state) -&gt; σ, D, state</code> function</li></ul><h2 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h2><p>We first create the problem&#39;s definition</p><pre><code class="language-julia hljs">traction_function(time) = time*1.e7 # N/m²
 
 function setup_problem_definition()
     # Define material properties
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
-
-    # Mesh
-    grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
 
     # Cell and facevalues
     interpolation = Lagrange{3, RefTetrahedron, 1}()
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
     fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
 
-    # Degrees of freedom
-    dh = DofHandler(grid)
-    push!(dh, :u, 3, interpolation) # add a displacement field with 3 components
-    close!(dh)
+    # Grid and degrees of freedom
+    grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
+    dh = DofHandler(grid); push!(dh, :u, 3, interpolation); close!(dh)
 
     # Constraints (Dirichlet boundary conditions)
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;left&quot;), (x,t) -&gt; [0.0, 0.0, 0.0], [1, 2, 3]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;left&quot;), (x,t) -&gt; zeros(3), [1, 2, 3]))
     close!(ch)
 
     # Neumann boundary conditions
@@ -31,15 +27,13 @@ function setup_problem_definition()
     add!(nh, Neumann(:u, fv, getfaceset(grid, &quot;right&quot;), (x,t,n)-&gt;Vec{3}((0.0, 0.0, traction_function(t)))))
 
     # Initial material states
-    states = [ [J2PlasticityMaterialState() for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(grid)]
+    states = create_states(dh, x-&gt;J2PlasticityMaterialState(), cv)
 
-    return FEDefinition(dh, ch, nh, cv, material, states)
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
 end;</code></pre><p>For the problem at hand, we need to define the element routine, following <code>FerriteAssembly</code>s interface. This function is almost equivalent to the <code>assemble_cell!</code> in the original example, except that</p><ol><li>We don&#39;t have to <code>reinit!</code> as <code>FerriteAssembly</code> does that before calling</li><li>The traction is handled by <code>FerriteNeumann</code> and is not done for each cell</li></ol><pre><code class="language-julia hljs">function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector,
-    ue::AbstractVector, ae_old::AbstractVector,
-    state::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues,
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, materialcache
-    )
+    Ke::AbstractMatrix, re::AbstractVector, state::AbstractVector,
+    ue::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues,
+    args...)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
@@ -50,19 +44,10 @@ end;</code></pre><p>For the problem at hand, we need to define the element routi
         for i in 1:n_basefuncs
             δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
             re[i] += (δϵ ⊡ σ) * dΩ # add internal force to residual
-            for j in 1:i # loop only over lower half
+            for j in 1:n_basefuncs
                 Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
                 Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
             end
-        end
-    end
-    symmetrize_lower!(Ke)
-end;
-
-function symmetrize_lower!(K)
-    for i in 1:size(K,1)
-        for j in i+1:size(K,1)
-            K[i,j] = K[j,i]
         end
     end
 end;</code></pre><p>At this point, we can define <code>problem = FerriteProblem(setup_problem_definition())</code>, which can be solved with <code>FESolvers.jl</code>&#39;s <code>solve_problem!</code>. But to get any results apart from the final state, we need to define the postprocessing after each step.</p><h2 id="Setup-postprocessing"><a class="docs-heading-anchor" href="#Setup-postprocessing">Setup postprocessing</a><a id="Setup-postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-postprocessing" title="Permalink"></a></h2><p>In contrast to the original example, we do not save directly to a vtk-file, but use <code>FerriteProblem</code>&#39;s IO features to save to JLD2 files. This has the advantage that further postprocessing can be done after the simulation, and we can then choose to export to the VTK-format or plot directly using e.g. <code>FerriteViz.jl</code>. We start by defining our custom postprocessing type.</p><pre><code class="language-julia hljs">struct PlasticityPostProcess{T}
@@ -81,7 +66,9 @@ PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);</code></p
     FerriteProblems.savedofdata!(p.io, FESolvers.getunknowns(p))
     # * Save the state in each integration point
     FerriteProblems.saveipdata!(p.io, FerriteProblems.getstate(p), &quot;state&quot;)
-end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><p>First, we define a helper function to plot the results after the solution</p><pre><code class="language-julia hljs">function plot_results(problem::FerriteProblem{&lt;:PlasticityPostProcess}; plt=plot(), label=nothing, markershape=:auto, markersize=4)
+end;</code></pre><p>We also define a helper function to plot the results after completion</p><pre><code class="language-julia hljs">function plot_results(problem::FerriteProblem{&lt;:PlasticityPostProcess};
+    plt=plot(), label=nothing, markershape=:auto, markersize=4
+    )
     umax = vcat(0.0, problem.post.umag)
     tmag = vcat(0.0, problem.post.tmag)
     plot!(plt, umax, tmag, linewidth=0.5, title=&quot;Traction-displacement&quot;, label=label,
@@ -89,7 +76,7 @@ end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" hre
     ylabel!(plt, &quot;Traction [Pa]&quot;)
     xlabel!(plt, &quot;Maximum deflection [m]&quot;)
     return plt
-end;</code></pre><p><strong>Temporary:</strong> Wrap <code>solve_problem!</code> to make it save any open stuff at the end, even in case of an exception. This is temporary, but would be nice to handle within FESolvers</p><pre><code class="language-julia hljs">function wrapped_solve!(solver, problem)
+end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><p><strong>Temporary:</strong> Wrap <code>solve_problem!</code> to make it save any open stuff at the end, even in case of an exception (e.g. not converging) This is temporary, but would be nice to handle within FESolvers</p><pre><code class="language-julia hljs">function wrapped_solve!(solver, problem)
     try
         solve_problem!(solver, problem)
     finally
@@ -108,6 +95,7 @@ end;</code></pre><p>Finally, we can solve the problem with different time steppi
 
     # Same time steps as Ferrite example, overwrite results
     problem = makeproblem(def, &quot;A&quot;)
+
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
     wrapped_solve!(solver, problem)
     plot_results(problem, plt=plt, label=&quot;fixed&quot;, markershape=:circle)
@@ -136,22 +124,18 @@ function setup_problem_definition()
     # Define material properties
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
 
-    # Mesh
-    grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
-
     # Cell and facevalues
     interpolation = Lagrange{3, RefTetrahedron, 1}()
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
     fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
 
-    # Degrees of freedom
-    dh = DofHandler(grid)
-    push!(dh, :u, 3, interpolation) # add a displacement field with 3 components
-    close!(dh)
+    # Grid and degrees of freedom
+    grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
+    dh = DofHandler(grid); push!(dh, :u, 3, interpolation); close!(dh)
 
     # Constraints (Dirichlet boundary conditions)
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;left&quot;), (x,t) -&gt; [0.0, 0.0, 0.0], [1, 2, 3]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;left&quot;), (x,t) -&gt; zeros(3), [1, 2, 3]))
     close!(ch)
 
     # Neumann boundary conditions
@@ -159,17 +143,15 @@ function setup_problem_definition()
     add!(nh, Neumann(:u, fv, getfaceset(grid, &quot;right&quot;), (x,t,n)-&gt;Vec{3}((0.0, 0.0, traction_function(t)))))
 
     # Initial material states
-    states = [ [J2PlasticityMaterialState() for _ in 1:getnquadpoints(cv)] for _ in 1:getncells(grid)]
+    states = create_states(dh, x-&gt;J2PlasticityMaterialState(), cv)
 
-    return FEDefinition(dh, ch, nh, cv, material, states)
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
 end;
 
 function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector,
-    ue::AbstractVector, ae_old::AbstractVector,
-    state::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues,
-    dh_fh::Union{DofHandler,FieldHandler}, Δt, materialcache
-    )
+    Ke::AbstractMatrix, re::AbstractVector, state::AbstractVector,
+    ue::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues,
+    args...)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
         # For each integration point, compute stress and material stiffness
@@ -180,19 +162,10 @@ function FerriteAssembly.element_routine!(
         for i in 1:n_basefuncs
             δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
             re[i] += (δϵ ⊡ σ) * dΩ # add internal force to residual
-            for j in 1:i # loop only over lower half
+            for j in 1:n_basefuncs
                 Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
                 Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
             end
-        end
-    end
-    symmetrize_lower!(Ke)
-end;
-
-function symmetrize_lower!(K)
-    for i in 1:size(K,1)
-        for j in i+1:size(K,1)
-            K[i,j] = K[j,i]
         end
     end
 end;
@@ -217,7 +190,9 @@ function FESolvers.postprocess!(p::FerriteProblem{&lt;:PlasticityPostProcess}, s
     FerriteProblems.saveipdata!(p.io, FerriteProblems.getstate(p), &quot;state&quot;)
 end;
 
-function plot_results(problem::FerriteProblem{&lt;:PlasticityPostProcess}; plt=plot(), label=nothing, markershape=:auto, markersize=4)
+function plot_results(problem::FerriteProblem{&lt;:PlasticityPostProcess};
+    plt=plot(), label=nothing, markershape=:auto, markersize=4
+    )
     umax = vcat(0.0, problem.post.umag)
     tmag = vcat(0.0, problem.post.tmag)
     plot!(plt, umax, tmag, linewidth=0.5, title=&quot;Traction-displacement&quot;, label=label,
@@ -235,6 +210,7 @@ function wrapped_solve!(solver, problem)
     end
 end;
 
+
 function example_solution()
     def = setup_problem_definition()
     makeproblem(_def, folder) = FerriteProblem(_def, PlasticityPostProcess(), joinpath(pwd(), folder))
@@ -248,6 +224,7 @@ function example_solution()
 
     # Same time steps as Ferrite example, overwrite results
     problem = makeproblem(def, &quot;A&quot;)
+
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
     wrapped_solve!(solver, problem)
     plot_results(problem, plt=plt, label=&quot;fixed&quot;, markershape=:circle)
@@ -265,4 +242,5 @@ end;
 
 plt, problem, solver = example_solution();
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Tuesday 18 October 2022 18:15">Tuesday 18 October 2022</span>. Using Julia version 1.8.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Sunday 23 October 2022 10:56">Sunday 23 October 2022</span>. Using Julia version 1.8.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
