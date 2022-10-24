@@ -7,7 +7,7 @@ using FESolvers, FerriteAssembly, FerriteNeumann
 using MaterialModelsBase
 import FESolvers: ScalarWrapper
 
-export FerriteProblem, FEDefinition
+export FerriteProblem, FEDefinition, safesolve
 export savedofdata!, savenodedata!, savecelldata!, saveipdata!, saveglobaldata!
 export getdofdata, getnodedata, getcelldata, getipdata, getglobaldata
 export initial_conditions!
@@ -31,6 +31,24 @@ function FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
 end
 function FerriteProblem(def::FEDefinition, post, savefolder::String)
     FerriteProblem(def, post, FerriteIO(savefolder, def, post))
+end
+
+"""
+    safesolve(solver, def::FEDefinition, args...; kwargs...)
+
+Starts by creating `FerriteProblem` from `def` and `args/kwargs` 
+and then wraps the call to `FESolvers.solve_problem!` in 
+`try ... finally` to ensure that `close_problem` is called even 
+in the case of no convergence.  
+"""
+function safesolve(solver, def::FEDefinition, args...; kwargs...)
+    problem = FerriteProblem(def, args...; kwargs...)
+    try
+        solve_problem!(solver, problem)
+    finally
+        close_problem(problem)
+    end
+    return problem
 end
 
 # FEDefinition: Make functions work directly on `problem`:
