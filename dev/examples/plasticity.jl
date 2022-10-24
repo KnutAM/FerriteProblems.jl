@@ -89,42 +89,28 @@ function plot_results(problem::FerriteProblem{<:PlasticityPostProcess};
     return plt
 end;
 
-function wrapped_solve!(solver, problem)
-    try
-        solve_problem!(solver, problem)
-    finally
-        FerriteProblems.close_problem(problem)
-    end
-end;
-
 global umax_solution = [0.0] # To save result for test #hide
 
 function example_solution()
     def = setup_problem_definition()
-    makeproblem(_def, folder) = FerriteProblem(_def, PlasticityPostProcess(), joinpath(pwd(), folder))
 
     # Fixed uniform time steps
-    problem = makeproblem(def, "A")
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(;num_steps=25,Δt=0.04))
-    wrapped_solve!(solver, problem)
-
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "A"))
     plt = plot_results(problem, label="uniform", markershape=:x, markersize=5)
 
-    # Same time steps as Ferrite example, overwrite results
-    problem = makeproblem(def, "A")
-
+    # Same time steps as Ferrite example, overwrite results by specifying the same folder
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
-    wrapped_solve!(solver, problem)
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "A"))
     plot_results(problem, plt=plt, label="fixed", markershape=:circle)
     umax_solution[1] = problem.post.umag[end] # Save value for comparison  #hide
 
     # Adaptive time stepping, save results to new folder
-    problem = makeproblem(def, "B")
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
-    wrapped_solve!(solver, problem)
-
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "B"))
     plot_results(problem, plt=plt, label="adaptive", markershape=:circle)
+
     plot!(;legend=:bottomright)
     return plt, problem, solver
 end;

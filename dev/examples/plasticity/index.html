@@ -76,37 +76,25 @@ end;</code></pre><p>We also define a helper function to plot the results after c
     ylabel!(plt, &quot;Traction [Pa]&quot;)
     xlabel!(plt, &quot;Maximum deflection [m]&quot;)
     return plt
-end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><p><strong>Temporary:</strong> Wrap <code>solve_problem!</code> to make it save any open stuff at the end, even in case of an exception (e.g. not converging) This is temporary, but would be nice to handle within FESolvers</p><pre><code class="language-julia hljs">function wrapped_solve!(solver, problem)
-    try
-        solve_problem!(solver, problem)
-    finally
-        FerriteProblems.close_problem(problem)
-    end
-end;</code></pre><p>Finally, we can solve the problem with different time stepping strategies and plot the results</p><pre><code class="language-julia hljs">function example_solution()
+end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><p>Finally, we can solve the problem with different time stepping strategies and plot the results. Here, we use <code>FerriteProblem</code>&#39;s <code>safesolve</code> that (1) creates our full <code>problem::FerriteProblem</code> and (2) ensures that files are closed even when the problem doesn&#39;t converge.</p><pre><code class="language-julia hljs">function example_solution()
     def = setup_problem_definition()
-    makeproblem(_def, folder) = FerriteProblem(_def, PlasticityPostProcess(), joinpath(pwd(), folder))
 
     # Fixed uniform time steps
-    problem = makeproblem(def, &quot;A&quot;)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(;num_steps=25,Δt=0.04))
-    wrapped_solve!(solver, problem)
-
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), &quot;A&quot;))
     plt = plot_results(problem, label=&quot;uniform&quot;, markershape=:x, markersize=5)
 
-    # Same time steps as Ferrite example, overwrite results
-    problem = makeproblem(def, &quot;A&quot;)
-
+    # Same time steps as Ferrite example, overwrite results by specifying the same folder
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
-    wrapped_solve!(solver, problem)
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), &quot;A&quot;))
     plot_results(problem, plt=plt, label=&quot;fixed&quot;, markershape=:circle)
 
     # Adaptive time stepping, save results to new folder
-    problem = makeproblem(def, &quot;B&quot;)
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
-    wrapped_solve!(solver, problem)
-
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), &quot;B&quot;))
     plot_results(problem, plt=plt, label=&quot;adaptive&quot;, markershape=:circle)
+
     plot!(;legend=:bottomright)
     return plt, problem, solver
 end;
@@ -202,40 +190,26 @@ function plot_results(problem::FerriteProblem{&lt;:PlasticityPostProcess};
     return plt
 end;
 
-function wrapped_solve!(solver, problem)
-    try
-        solve_problem!(solver, problem)
-    finally
-        FerriteProblems.close_problem(problem)
-    end
-end;
-
 
 function example_solution()
     def = setup_problem_definition()
-    makeproblem(_def, folder) = FerriteProblem(_def, PlasticityPostProcess(), joinpath(pwd(), folder))
 
     # Fixed uniform time steps
-    problem = makeproblem(def, &quot;A&quot;)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(;num_steps=25,Δt=0.04))
-    wrapped_solve!(solver, problem)
-
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), &quot;A&quot;))
     plt = plot_results(problem, label=&quot;uniform&quot;, markershape=:x, markersize=5)
 
-    # Same time steps as Ferrite example, overwrite results
-    problem = makeproblem(def, &quot;A&quot;)
-
+    # Same time steps as Ferrite example, overwrite results by specifying the same folder
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
-    wrapped_solve!(solver, problem)
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), &quot;A&quot;))
     plot_results(problem, plt=plt, label=&quot;fixed&quot;, markershape=:circle)
 
     # Adaptive time stepping, save results to new folder
-    problem = makeproblem(def, &quot;B&quot;)
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
-    wrapped_solve!(solver, problem)
-
+    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), &quot;B&quot;))
     plot_results(problem, plt=plt, label=&quot;adaptive&quot;, markershape=:circle)
+
     plot!(;legend=:bottomright)
     return plt, problem, solver
 end;
@@ -243,4 +217,4 @@ end;
 plt, problem, solver = example_solution();
 
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Sunday 23 October 2022 18:21">Sunday 23 October 2022</span>. Using Julia version 1.8.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Monday 24 October 2022 17:23">Monday 24 October 2022</span>. Using Julia version 1.8.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
