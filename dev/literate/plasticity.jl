@@ -112,7 +112,7 @@ function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
 
     ## Second, we save some results to file
     ## * We must always start by adding the next step.
-    FerriteProblems.addstep!(p.io, FerriteProblems.gettime(p))
+    FerriteProblems.addstep!(p.io, p)
     ## * Save the dof values (only displacments in this case)
     FerriteProblems.savedofdata!(p.io, FESolvers.getunknowns(p))
     ## * Save the state in each integration point
