@@ -51,6 +51,22 @@ function safesolve(solver, def::FEDefinition, args...; kwargs...)
     return problem
 end
 
+"""
+    FESolvers.postprocess!(p::FerriteProblem, step, solver)
+
+When `FESolvers` call this function for `p::FerriteProblem`, 
+the following function
+
+    FESolvers.postprocess!(post, p::FerriteProblem, step, solver)
+
+is called where post=p.post (unless you define a different override). 
+This allows you to easily define the dispatch on your postprocessing 
+type as `FESolvers.postprocess!(post::MyPostType, p, step, solver)`
+"""
+function FESolvers.postprocess!(p::FerriteProblem, step, solver)
+    return FESolvers.postprocess!(p.post, p, step, solver)
+end
+
 # FEDefinition: Make functions work directly on `problem`:
 for op = (:getdh, :getch, :getnh, :getcv, :getmaterial)
     eval(quote
