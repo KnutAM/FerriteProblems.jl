@@ -98,6 +98,8 @@ function close_problem(p::FerriteProblem)
 end
 close_problem(::Nothing, args...) = nothing # Do nothing if there is no io defined. 
 
+addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
+
 # Actual FE-"work"
 # * update_to_next_step!
 # * update_problem!

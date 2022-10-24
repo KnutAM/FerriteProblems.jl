@@ -34,18 +34,18 @@ function FerriteIO(
     switchsize=Inf,
     )
     time = T[]
-    firststep = [1,]
+    filesteps = [1,]
     datafiles=String[]
     dof2node = get_dof2node(def)
     isdir(folder) || mkdir(folder)
     jldsave(joinpath(folder, def_file); def=def)
     _postfile = isnothing(post) ? "" : postfile
     
-    file = new_file!(firststep, datafiles, folder)
+    file = new_file!(filesteps, datafiles, folder)
     return FerriteIO(
         ScalarWrapper(folder), def_file, _postfile, 
         nsteps_per_file, switchsize, ScalarWrapper(0),
-        time, firststep, datafiles, 
+        time, filesteps, datafiles, 
         ScalarWrapper(file), ScalarWrapper(1),
         dof2node
         )
@@ -57,19 +57,10 @@ end
 Constructor for reading a `FerriteIO` that was saved during a simulation
 """
 function FerriteIO(filename::String)
-    key="io"
     endswith(filename, ".jld2") || @warn("Expected file ending with \".jld2\", unlike $filename")
-    contents = load(filename)
-    local io
-    try
-        io = contents[key]
-    catch e
-        isa(e, KeyError) ? KeyError("Expected $key to exist in $filename") : rethrow(e)
-    end
-    if !isa(io, FerriteIO)
-        throw(ArgumentError("Expected $filename to have a FerriteIO object in the key \"$key\""))
-    end
+    io = get_problem_part(filename, "io", FerriteIO)
     io.folder[] = dirname(filename) # Update folder location, assume that other files maintain relative paths
+    io.filenumber[] = -1            # Force re-opening file if needed
     return io
 end
 
@@ -164,13 +155,13 @@ function saveglobaldata!(io::FerriteIO, vals, field, dt_order=0)
     return savedata!(io, vals, _globalkey, field, dt_order)
 end
 
-getfilenumber(io, step) = findfirst(x -> x >= step, io.firststep)
+getfilenumber(io, step) = findfirst(x -> x > step, io.filesteps) - 1
 
 function open_if_needed!(io::FerriteIO, step, mode="r")
     num = getfilenumber(io, step)
     if num != io.filenumber[]
         close(io.fileobject[])
-        io.filenumber[] = jldopen(datafilepath(io, num), mode)
+        io.fileobject[] = jldopen(datafilepath(io, num), mode)
         io.filenumber[] = num
     end
 end
@@ -196,6 +187,9 @@ function checkkey(file, step, dt_order, type, field)
     throw(ErrorException("Unexpected to reach here"))
 end
 
+gettimedata(io::FerriteIO) = io.time
+gettimedata(io::FerriteIO, step) = io.time[step]
+
 function getdata(io::FerriteIO, step::Int, type, field, dt_order)
     open_if_needed!(io::FerriteIO, step)
     file = io.fileobject[]
@@ -219,6 +213,30 @@ function getglobaldata(io::FerriteIO, step, field; dt_order=0)
     getdata(io, step, _globalkey, field, dt_order)
 end
 
+function get_problem_part(filename, key, Type)
+    contents = load(filename)
+    local part
+    try
+        part = contents[key]
+    catch e
+        isa(e, KeyError) ? KeyError("Expected $key to exist in $filename") : rethrow(e)
+    end
+    if !isa(part, Type)
+        throw(ArgumentError("Expected $filename to have a $Type object in the key \"$key\""))
+    end
+    return part
+end
+
+function getdef(io::FerriteIO)
+    filename = joinpath(io.folder[], io.def_file)
+    return get_problem_part(filename, "def", FEDefinition)
+end
+
+function getpost(io::FerriteIO)
+    filename = joinpath(io.folder[], io.postfile)
+    return get_problem_part(filename, "post", Any)
+end
+    
 
 # Utility functions
 get_dof2node(def::FEDefinition) = get_dof2node(getdh(def))
