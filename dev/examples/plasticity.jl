@@ -63,10 +63,11 @@ struct PlasticityPostProcess{T}
 end
 PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 
-function FESolvers.postprocess!(p::FerriteProblem{<:PlasticityPostProcess}, step, solver)
+function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
+    # p::FerriteProblem
     # First, we save some values directly in the `post` struct
-    push!(p.post.tmag, traction_function(FerriteProblems.gettime(p)))
-    push!(p.post.umag, maximum(abs, FESolvers.getunknowns(p)))
+    push!(post.tmag, traction_function(FerriteProblems.gettime(p)))
+    push!(post.umag, maximum(abs, FESolvers.getunknowns(p)))
 
     # Second, we save some results to file
     # * We must always start by adding the next step.

@@ -102,16 +102,16 @@ end
 PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 
 # With this postprocessing type, we can now define the postprocessing in FESolvers.
-# Since the `FerriteProblem` type is used for all types of problems, it can be 
-# useful to dispatch on the contained postprocessing type to have multiple problems 
-# defined in the same session/package. 
-function FESolvers.postprocess!(p::FerriteProblem{<:PlasticityPostProcess}, step, solver)
-    ## First, we save some values directly in the `post` struct 
-    push!(p.post.tmag, traction_function(FerriteProblems.gettime(p)))
-    push!(p.post.umag, maximum(abs, FESolvers.getunknowns(p)))
+# For convenience, `FerriteProblems` will call `FESolvers.postprocess!` with the 
+# `post` as the first argument making it easy to dispatch on: 
+function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
+    ## p::FerriteProblem
+    ## First, we save some values directly in the `post` struct
+    push!(post.tmag, traction_function(FerriteProblems.gettime(p)))
+    push!(post.umag, maximum(abs, FESolvers.getunknowns(p)))
 
     ## Second, we save some results to file
-    ## * We must always start by adding the next step. 
+    ## * We must always start by adding the next step.
     FerriteProblems.addstep!(p.io, FerriteProblems.gettime(p))
     ## * Save the dof values (only displacments in this case)
     FerriteProblems.savedofdata!(p.io, FESolvers.getunknowns(p))
