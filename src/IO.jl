@@ -91,6 +91,8 @@ function close_problem(io::FerriteIO, post=nothing)
     jldsave(joinpath(io.folder[], "FerriteIO.jld2"), io=io)
 end
 
+Base.close(io::FerriteIO) = close(io.fileobject[])
+
 function new_file!(io::FerriteIO)
     close(io.fileobject[])
     io.currentsize[] = 0
@@ -194,7 +196,8 @@ function getdata(io::FerriteIO, step::Int, type, field, dt_order)
     open_if_needed!(io::FerriteIO, step)
     file = io.fileobject[]
     checkkey(file, step, dt_order, type, field) # Errors if not ok
-    return file["$step/$dt_order/$type/$field"]
+    # Copy, otherwise we can change the contents!!!
+    return copy(file["$step/$dt_order/$type/$field"])
 end
 
 function getdofdata(io::FerriteIO, step; dt_order=0)
