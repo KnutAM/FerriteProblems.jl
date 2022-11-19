@@ -6,10 +6,6 @@ CurrentModule = FerriteProblems
 
 Documentation for [FerriteProblems](https://github.com/KnutAM/FerriteProblems.jl).
 
-
-```@index
-```
-
 When using the `FESolvers.jl` package together with `Ferrite.jl`, 
 the user has to specify a `problem` to be solved. 
 The purpose of `FESolvers.jl` is to keep this as general as possible, 
