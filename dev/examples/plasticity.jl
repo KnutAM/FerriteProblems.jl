@@ -66,16 +66,16 @@ PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     # p::FerriteProblem
     # First, we save some values directly in the `post` struct
-    push!(post.tmag, traction_function(FerriteProblems.gettime(p)))
-    push!(post.umag, maximum(abs, FESolvers.getunknowns(p)))
+    push!(post.tmag, traction_function(FP.gettime(p)))
+    push!(post.umag, maximum(abs, FP.getunknowns(p)))
 
     # Second, we save some results to file
     # * We must always start by adding the next step.
-    FerriteProblems.addstep!(p.io, p)
+    FP.addstep!(p.io, p)
     # * Save the dof values (only displacments in this case)
-    FerriteProblems.savedofdata!(p.io, FESolvers.getunknowns(p))
+    FP.savedofdata!(p.io, FP.getunknowns(p))
     # * Save the state in each integration point
-    FerriteProblems.saveipdata!(p.io, FerriteProblems.getstate(p), "state")
+    FP.saveipdata!(p.io, FP.getstate(p), "state")
 end;
 
 function plot_results(problem::FerriteProblem{<:PlasticityPostProcess};

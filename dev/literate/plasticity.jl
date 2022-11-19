@@ -102,21 +102,24 @@ end
 PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 
 # With this postprocessing type, we can now define the postprocessing in FESolvers.
+# Note that `FerriteProblems` exports `const FP=FerriteProblems` to avoid polluting
+# the namespace with many exported functions. It is also possible to access the
+# `FESolvers` functions `getunknowns`, `getresidual`, and `getjacobian` via `FP`
 # For convenience, `FerriteProblems` will call `FESolvers.postprocess!` with the 
 # `post` as the first argument making it easy to dispatch on: 
 function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     ## p::FerriteProblem
     ## First, we save some values directly in the `post` struct
-    push!(post.tmag, traction_function(FerriteProblems.gettime(p)))
-    push!(post.umag, maximum(abs, FESolvers.getunknowns(p)))
+    push!(post.tmag, traction_function(FP.gettime(p)))
+    push!(post.umag, maximum(abs, FP.getunknowns(p)))
 
     ## Second, we save some results to file
     ## * We must always start by adding the next step.
-    FerriteProblems.addstep!(p.io, p)
+    FP.addstep!(p.io, p)
     ## * Save the dof values (only displacments in this case)
-    FerriteProblems.savedofdata!(p.io, FESolvers.getunknowns(p))
+    FP.savedofdata!(p.io, FP.getunknowns(p))
     ## * Save the state in each integration point
-    FerriteProblems.saveipdata!(p.io, FerriteProblems.getstate(p), "state")
+    FP.saveipdata!(p.io, FP.getstate(p), "state")
 end;
 
 # We also define a helper function to plot the results after completion
@@ -134,7 +137,7 @@ end;
 
 # ## Solving the problem
 # Finally, we can solve the problem with different time stepping strategies 
-# and plot the results. Here, we use `FerriteProblem`'s `safesolve` that 
+# and plot the results. Here, we use `FerriteProblems`' `safesolve` that 
 # (1) creates our full `problem::FerriteProblem` 
 # and (2) ensures that files are closed even when the problem doesn't converge. 
 
