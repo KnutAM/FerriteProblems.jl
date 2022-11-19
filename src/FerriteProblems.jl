@@ -1,5 +1,5 @@
 module FerriteProblems
-const FP = FerriteProblems # Provide shorthand instead of exporting all functions
+
 using Printf
 using FileIO, JLD2
 using Ferrite
@@ -8,9 +8,9 @@ using MaterialModelsBase
 import FESolvers: ScalarWrapper
 import FESolvers: getunknowns, getresidual, getjacobian 
 
+const FP = FerriteProblems # Provide shorthand instead of exporting all functions
+export FP
 export FerriteProblem, FEDefinition, safesolve
-export savedofdata!, savenodedata!, savecelldata!, saveipdata!, saveglobaldata!
-export getdofdata, getnodedata, getcelldata, getipdata, getglobaldata
 export initial_conditions!
 
 include("initial_conditions.jl")    # Could maybe add tests and PR into Ferrite - but no time for that now...
