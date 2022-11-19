@@ -90,28 +90,28 @@ end
 # Note: The following functions are also overloaded for the entire ::FerriteProblem,
 # and only this version is documented. 
 """
-    getdh(p::FerriteProblem)
+    FP.getdh(p::FerriteProblem)
 
 Get `dh::Ferrite.AbstractDofHandler` from the `FEDefinition`
 """
 getdh(def::FEDefinition) = def.dh
 
 """
-    getch(p::FerriteProblem)
+    FP.getch(p::FerriteProblem)
 
 Get the `ConstraintHandler` from the `FEDefinition`
 """
 getch(def::FEDefinition) = def.ch
 
 """
-    getnh(p::FerriteProblem)
+    FP.getnh(p::FerriteProblem)
 
 Get the `NeumannHandler` from the `FEDefinition`
 """
 getnh(def::FEDefinition) = def.nh
 
 """
-    getcv(p::FerriteProblem)
+    FP.getcv(p::FerriteProblem)
 
 Get the cell values from the `FEDefinition`. 
 Note that this could also be a `Tuple` or `NamedTuple` depending on 
@@ -120,14 +120,14 @@ what was initially given to `FEDefinition`
 getcv(def::FEDefinition) = def.cv
 
 """
-    getmaterial(p::FerriteProblem)
+    FP.getmaterial(p::FerriteProblem)
 
 Get the material from the `FEDefinition`
 """
 getmaterial(def::FEDefinition) = def.m
 
 """
-    getbodyload(p::FerriteProblem)
+    FP.getbodyload(p::FerriteProblem)
 
 Get the bodyload given to the `FEDefinition`
 """

@@ -120,7 +120,7 @@ function new_file_if_needed!(io::FerriteIO) # internal
 end
 
 """
-    addstep!(io::FerriteIO, p::FerriteProblem)
+    FP.addstep!(io::FerriteIO, p::FerriteProblem)
 
 Add a new step to be saved by `io` at the time `gettime(p)`
 Must be called before adding any new data
@@ -156,7 +156,7 @@ const _ipkey = "ip"
 const _globalkey = "global"
 
 """
-    savedofdata!(io::FerriteIO, vals, dt_order=0, field=\"$_dofkey\")
+    FP.savedofdata!(io::FerriteIO, vals, dt_order=0, field=\"$_dofkey\")
 
 Save data pertaining to each degree of freedom.
 Use a different field than `\"$_dofkey\"`` to save data located at each dof, 
@@ -167,7 +167,7 @@ function savedofdata!(io::FerriteIO, vals, dt_order=0, field=_dofkey)
 end
 
 """
-    savenodedata!(io::FerriteIO, vals, field, dt_order=0)
+    FP.savenodedata!(io::FerriteIO, vals, field, dt_order=0)
 
 Save data located at each node.
 By convention this should be indexed by the node numbers in the grid.
@@ -178,7 +178,7 @@ function savenodedata!(io::FerriteIO, vals, field, dt_order=0)
 end
 
 """
-    savecelldata!(io::FerriteIO, vals, field, dt_order=0)
+    FP.savecelldata!(io::FerriteIO, vals, field, dt_order=0)
 
 Save data for each cell. 
 By convention this should be indexed by the cell numbers in the grid.
@@ -189,7 +189,7 @@ function savecelldata!(io::FerriteIO, vals, field, dt_order=0)
 end
 
 """
-    saveipdata!(io::FerriteIO, vals, field, dt_order=0)
+    FP.saveipdata!(io::FerriteIO, vals, field, dt_order=0)
 
 Save data for each integration point in cells in the grid. 
 By convention the data for each cell should be indexed by the cell numbers in the grid.
@@ -202,7 +202,7 @@ function saveipdata!(io::FerriteIO, vals, field, dt_order=0)
 end
 
 """
-    saveglobaldata!(io::FerriteIO, vals, field, dt_order=0)
+    FP.saveglobaldata!(io::FerriteIO, vals, field, dt_order=0)
 
 Save data that is global to the entire simulation, i.e. global quantites such as 
 reaction forces, total dissipation, etc. 
@@ -271,7 +271,7 @@ function getdata(io::FerriteIO, step::Int, type, field, dt_order)
 end
 
 """
-    getdofdata(io::FerriteIO, step, field=\"$_dofkey\"; dt_order=0)
+    FP.getdofdata(io::FerriteIO, step, field=\"$_dofkey\"; dt_order=0)
 
 Get the data saved by [`savedofdata!`](@ref) in `step` for `field`.
 """
@@ -280,7 +280,7 @@ function getdofdata(io::FerriteIO, step; dt_order=0, field=_dofkey)
 end
 
 """
-    getnodedata(io::FerriteIO, step, field; dt_order=0)
+    FP.getnodedata(io::FerriteIO, step, field; dt_order=0)
 
 Get the data saved by [`savenodedata!`](@ref) in `step` for `field`.
 """
@@ -289,7 +289,7 @@ function getnodedata(io::FerriteIO, step, field; dt_order=0)
 end
 
 """
-    getcelldata(io::FerriteIO, step, field; dt_order=0)
+    FP.getcelldata(io::FerriteIO, step, field; dt_order=0)
 
 Get the data saved by [`savecelldata!`](@ref) in `step` for `field`.
 """
@@ -298,7 +298,7 @@ function getcelldata(io::FerriteIO, step, field; dt_order=0)
 end
 
 """
-    getipdata(io::FerriteIO, step, field; dt_order=0)
+    FP.getipdata(io::FerriteIO, step, field; dt_order=0)
 
 Get the data saved by [`saveipdata!`](@ref) in `step` for `field`.
 """
@@ -307,7 +307,7 @@ function getipdata(io::FerriteIO, step, field; dt_order=0)
 end
 
 """
-    getglobaldata(io::FerriteIO, step, field; dt_order=0)
+    FP.getglobaldata(io::FerriteIO, step, field; dt_order=0)
 
 Get the data saved by [`saveglobaldata!`](@ref) in `step` for `field`.
 """
@@ -330,7 +330,7 @@ function get_problem_part(filename, key, Type)
 end
 
 """
-    getdef(io::FerriteIO)
+    FP.getdef(io::FerriteIO)
 
 Load the `FEDefinition` from the results saved by `io`
 """
@@ -340,7 +340,7 @@ function getdef(io::FerriteIO)
 end
 
 """
-    getpost(io::FerriteIO)
+    FP.getpost(io::FerriteIO)
 
 Load the user defined `post` from the results saved by `io`
 """
