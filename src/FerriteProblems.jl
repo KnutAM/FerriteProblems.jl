@@ -10,7 +10,8 @@ import FESolvers: getunknowns, getresidual, getjacobian
 
 const FP = FerriteProblems # Provide shorthand instead of exporting all functions
 export FP
-export FerriteProblem, FEDefinition, safesolve
+export FerriteProblem, FEDefinition, FerriteIO
+export safesolve
 export initial_conditions!
 
 include("initial_conditions.jl")    # Could maybe add tests and PR into Ferrite - but no time for that now...
@@ -19,6 +20,13 @@ include("FEBuffer.jl")
 include("IO.jl")
 include("MaterialModelsBase.jl")
 
+"""
+    FerriteProblem(def::FEDefinition, post, buf::FEBuffer, io::[FerriteIO])
+    
+The main problem type that holds all variables to solve a particular problem 
+using `FESolvers`
+"""
+
 struct FerriteProblem{POST,DEF<:FEDefinition,BUF<:FEBuffer,IOT}
     def::DEF
     post::POST
@@ -26,10 +34,23 @@ struct FerriteProblem{POST,DEF<:FEDefinition,BUF<:FEBuffer,IOT}
     io::IOT
 end
 
+"""
+    FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
+    
+Constructor that makes the minimum required to run simulation. 
+Optional postprocessing and `io::FerriteIO` if desired. 
+"""
 function FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
     buf = FEBuffer(def)
     FerriteProblem(def,post,buf,io)
 end
+
+"""
+    FerriteProblem(def::FEDefinition, post, savefolder::String)
+
+Constructor with automatic generation of `FerriteIO` by just specifying 
+in which folder data should be saved. 
+"""
 function FerriteProblem(def::FEDefinition, post, savefolder::String)
     FerriteProblem(def, post, FerriteIO(savefolder, def, post))
 end
@@ -39,8 +60,8 @@ end
 
 Starts by creating `FerriteProblem` from `def` and `args/kwargs` 
 and then wraps the call to `FESolvers.solve_problem!` in 
-`try ... finally` to ensure that `close_problem` is called even 
-in the case of no convergence.  
+`try ... finally` to ensure that [`close_problem`](@ref) is 
+called even in the case of no convergence.  
 """
 function safesolve(solver, def::FEDefinition, args...; kwargs...)
     problem = FerriteProblem(def, args...; kwargs...)
@@ -60,7 +81,7 @@ the following function
 
     FESolvers.postprocess!(post, p::FerriteProblem, step, solver)
 
-is called where post=p.post (unless you define a different override). 
+is called where `post=p.post` (unless you define a different override). 
 This allows you to easily define the dispatch on your postprocessing 
 type as `FESolvers.postprocess!(post::MyPostType, p, step, solver)`
 """
@@ -69,7 +90,7 @@ function FESolvers.postprocess!(p::FerriteProblem, step, solver)
 end
 
 # FEDefinition: Make functions work directly on `problem`:
-for op = (:getdh, :getch, :getnh, :getcv, :getmaterial)
+for op = (:getdh, :getch, :getnh, :getcv, :getmaterial, :getbodyload)
     eval(quote
         FerriteProblems.$op(p::FerriteProblem) = FerriteProblems.$op(p.def)
     end)
@@ -93,7 +114,12 @@ for op = (
 end
 settime!(p::FerriteProblem, t) = settime!(p.buf, t)
 
-# FerriteIO: Make close_problem work on the problem
+# FerriteIO: Make close_problem work on the problem, see IO.jl for definition
+"""
+    close_problem(p::FerriteProblem)
+
+Method for closing all open files before ending the simulation
+"""
 function close_problem(p::FerriteProblem)
     return close_problem(p.io, p.post)
 end

@@ -25,7 +25,9 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Examples" => GENERATEDEXAMPLES,  
+        "API" => "api.md",
+        "Examples" => GENERATEDEXAMPLES,
+        "Internals" => "internals.md",
     ],
     strict=Documenter.except(:missing_docs),
 )

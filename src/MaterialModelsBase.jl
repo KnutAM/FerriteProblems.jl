@@ -1,6 +1,6 @@
 # Mechanical materials that are defined according to the `MaterialModelsBase.jl`
 # have already built-in support for convenience
-get_material_cache(m::AbstractMaterial) = get_cache(m)
+allocate_material_cache(m::AbstractMaterial) = get_cache(m)
 
 getstatefun(m::AbstractMaterial) = _->initial_material_state(m)
 

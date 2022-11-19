@@ -69,20 +69,15 @@ end
 
 Get the path of a file relative `io`'s folder
 """
-filepath(io::FerriteIO, args...) = joinpath(io.folder[], args...)
+filepath(io::FerriteIO, args...) = joinpath(io.folder[], args...) # internal
 
 """
     datafilepath(io::FerriteIO, num=length(io.datafiles))
 
 Get the path of the data file number `num` in `io.datafiles`
 """
-datafilepath(io::FerriteIO, num=length(io.datafiles)) = filepath(io, io.datafiles[num])
+datafilepath(io::FerriteIO, num=length(io.datafiles)) = filepath(io, io.datafiles[num]) # internal
 
-"""
-    close_problem(io::FerriteIO, post=nothing)
-
-Method for closing all open files before ending the simulation
-"""
 function close_problem(io::FerriteIO, post=nothing)
     close(io.fileobject[])
     if !isnothing(post)
@@ -91,23 +86,30 @@ function close_problem(io::FerriteIO, post=nothing)
     jldsave(joinpath(io.folder[], "FerriteIO.jld2"), io=io)
 end
 
-Base.close(io::FerriteIO) = close(io.fileobject[])
+# Is this used?
+Base.close(io::FerriteIO) = close(io.fileobject[]) # internal
 
-function new_file!(io::FerriteIO)
+"""
+    new_file!
+"""
+function new_file!(io::FerriteIO)   # internal
     close(io.fileobject[])
     io.currentsize[] = 0
     io.fileobject[] = new_file!(io.filesteps, io.datafiles, io.folder[])
     io.filenumber[] += 1
 end
 
-function new_file!(filesteps::Vector{Int}, datafiles::Vector{String}, folder::String)
+function new_file!(filesteps::Vector{Int}, datafiles::Vector{String}, folder::String) # internal
     push!(filesteps, filesteps[end])
     name = @sprintf("datafile_%05u.jld2", length(datafiles)+1)
     push!(datafiles, name)
     return jldopen(joinpath(folder, name), "w")
 end
 
-function new_file_if_needed!(io::FerriteIO)
+"""
+    new_file_if_needed!
+"""
+function new_file_if_needed!(io::FerriteIO) # internal
     num_current_steps = io.filesteps[end]-io.filesteps[1]+1
     if num_current_steps > io.nsteps_per_file
         new_file!(io::FerriteIO)
@@ -117,6 +119,12 @@ function new_file_if_needed!(io::FerriteIO)
     return nothing
 end
 
+"""
+    addstep!(io::FerriteIO, p::FerriteProblem)
+
+Add a new step to be saved by `io` at the time `gettime(p)`
+Must be called before adding any new data
+"""
 function addstep!(io::FerriteIO, time)
     io.filesteps[end] += 1   # Note: Must be done before new_file!
     new_file_if_needed!(io)  # Check size and number of steps
@@ -124,11 +132,17 @@ function addstep!(io::FerriteIO, time)
     return nothing
 end
 
-function update_currentsize!(io, val)
+"""
+    update_currentsize!
+"""
+function update_currentsize!(io, val) # internal
     io.currentsize[] += Base.summarysize(val)
 end
 
-function savedata!(io::FerriteIO, vals, type::String, field::String, dt_order::Int)
+"""
+    savedata!
+"""
+function savedata!(io::FerriteIO, vals, type::String, field::String, dt_order::Int) # internal
     step = string(length(io.time))
     update_currentsize!(io, vals)
     file = io.fileobject[]
@@ -141,25 +155,71 @@ const _cellkey = "cell"
 const _ipkey = "ip"
 const _globalkey = "global"
 
-function savedofdata!(io::FerriteIO, vals, dt_order=0)
-    return savedata!(io, vals, _dofkey, _dofkey, dt_order)
+"""
+    savedofdata!(io::FerriteIO, vals, dt_order=0, field=\"$_dofkey\")
+
+Save data pertaining to each degree of freedom.
+Use a different field than `\"$_dofkey\"`` to save data located at each dof, 
+but not the actual dof values (e.g. the residual vector)
+"""
+function savedofdata!(io::FerriteIO, vals, dt_order=0, field=_dofkey)
+    return savedata!(io, vals, _dofkey, field, dt_order)
 end
+
+"""
+    savenodedata!(io::FerriteIO, vals, field, dt_order=0)
+
+Save data located at each node.
+By convention this should be indexed by the node numbers in the grid.
+(E.g. a `Vector` for all nodes or a `Dict{Int}` with keys the node numbers)
+"""
 function savenodedata!(io::FerriteIO, vals, field, dt_order=0)
     return savedata!(io, vals, _nodekey, field, dt_order)
 end
+
+"""
+    savecelldata!(io::FerriteIO, vals, field, dt_order=0)
+
+Save data for each cell. 
+By convention this should be indexed by the cell numbers in the grid.
+(E.g. a `Vector` for all cells or a `Dict{Int}` with keys the cell indices)
+"""
 function savecelldata!(io::FerriteIO, vals, field, dt_order=0)
     return savedata!(io, vals, _cellkey, field, dt_order)
 end
+
+"""
+    saveipdata!(io::FerriteIO, vals, field, dt_order=0)
+
+Save data for each integration point in cells in the grid. 
+By convention the data for each cell should be indexed by the cell numbers in the grid.
+(E.g. a `Vector` for all cells or a `Dict{Int}` with keys the cell indices)
+Note that it is on the user to know how the integration points are numbered, 
+i.e. which `QuadratureRule` that was used. 
+"""
 function saveipdata!(io::FerriteIO, vals, field, dt_order=0)
     return savedata!(io, vals, _ipkey, field, dt_order)
 end
+
+"""
+    saveglobaldata!(io::FerriteIO, vals, field, dt_order=0)
+
+Save data that is global to the entire simulation, i.e. global quantites such as 
+reaction forces, total dissipation, etc. 
+"""
 function saveglobaldata!(io::FerriteIO, vals, field, dt_order=0)
     return savedata!(io, vals, _globalkey, field, dt_order)
 end
 
-getfilenumber(io, step) = findfirst(x -> x > step, io.filesteps) - 1
+"""
+    getfilenumber
+"""
+getfilenumber(io, step) = findfirst(x -> x > step, io.filesteps) - 1    # internal
 
-function open_if_needed!(io::FerriteIO, step, mode="r")
+"""
+    open_if_needed!
+"""
+function open_if_needed!(io::FerriteIO, step, mode="r") # internal
     num = getfilenumber(io, step)
     if num != io.filenumber[]
         close(io.fileobject[])
@@ -168,7 +228,10 @@ function open_if_needed!(io::FerriteIO, step, mode="r")
     end
 end
 
-function checkkey(file, step, dt_order, type, field)
+"""
+    checkkey
+"""
+function checkkey(file, step, dt_order, type, field) # internal
     # Do full check first, to avoid overhead of going through each level
     haskey(file, "$step/$dt_order/$type/$field") && return nothing
     if !haskey(file, "$step")
@@ -189,9 +252,16 @@ function checkkey(file, step, dt_order, type, field)
     throw(ErrorException("Unexpected to reach here"))
 end
 
+"""
+    gettimedata(io::FerriteIO)
+    gettimedata(io::FerriteIO, step)
+"""
 gettimedata(io::FerriteIO) = io.time
 gettimedata(io::FerriteIO, step) = io.time[step]
 
+"""
+    getdata
+"""
 function getdata(io::FerriteIO, step::Int, type, field, dt_order)
     open_if_needed!(io::FerriteIO, step)
     file = io.fileobject[]
@@ -200,18 +270,47 @@ function getdata(io::FerriteIO, step::Int, type, field, dt_order)
     return copy(file["$step/$dt_order/$type/$field"])
 end
 
-function getdofdata(io::FerriteIO, step; dt_order=0)
-    getdata(io, step, _dofkey, _dofkey, dt_order)
+"""
+    getdofdata(io::FerriteIO, step, field=\"$_dofkey\"; dt_order=0)
+
+Get the data saved by [`savedofdata!`](@ref) in `step` for `field`.
+"""
+function getdofdata(io::FerriteIO, step; dt_order=0, field=_dofkey)
+    getdata(io, step, _dofkey, field, dt_order)
 end
+
+"""
+    getnodedata(io::FerriteIO, step, field; dt_order=0)
+
+Get the data saved by [`savenodedata!`](@ref) in `step` for `field`.
+"""
 function getnodedata(io::FerriteIO, step, field; dt_order=0)
     getdata(io, step, _nodekey, field, dt_order)
 end
+
+"""
+    getcelldata(io::FerriteIO, step, field; dt_order=0)
+
+Get the data saved by [`savecelldata!`](@ref) in `step` for `field`.
+"""
 function getcelldata(io::FerriteIO, step, field; dt_order=0)
     getdata(io, step, _cellkey, field, dt_order)
 end
+
+"""
+    getipdata(io::FerriteIO, step, field; dt_order=0)
+
+Get the data saved by [`saveipdata!`](@ref) in `step` for `field`.
+"""
 function getipdata(io::FerriteIO, step, field; dt_order=0)
     getdata(io, step, _ipkey, field, dt_order)
 end
+
+"""
+    getglobaldata(io::FerriteIO, step, field; dt_order=0)
+
+Get the data saved by [`saveglobaldata!`](@ref) in `step` for `field`.
+"""
 function getglobaldata(io::FerriteIO, step, field; dt_order=0)
     getdata(io, step, _globalkey, field, dt_order)
 end
@@ -230,11 +329,21 @@ function get_problem_part(filename, key, Type)
     return part
 end
 
+"""
+    getdef(io::FerriteIO)
+
+Load the `FEDefinition` from the results saved by `io`
+"""
 function getdef(io::FerriteIO)
     filename = joinpath(io.folder[], io.def_file)
     return get_problem_part(filename, "def", FEDefinition)
 end
 
+"""
+    getpost(io::FerriteIO)
+
+Load the user defined `post` from the results saved by `io`
+"""
 function getpost(io::FerriteIO)
     filename = joinpath(io.folder[], io.postfile)
     return get_problem_part(filename, "post", Any)
@@ -242,6 +351,9 @@ end
     
 
 # Utility functions
+"""
+    get_dof2node
+"""
 get_dof2node(def::FEDefinition) = get_dof2node(getdh(def))
 function get_dof2node(dh)
     fieldnames = Ferrite.getfieldnames(dh)
