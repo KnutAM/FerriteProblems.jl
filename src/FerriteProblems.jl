@@ -1,11 +1,12 @@
 module FerriteProblems
-
+const FP = FerriteProblems # Provide shorthand instead of exporting all functions
 using Printf
 using FileIO, JLD2
 using Ferrite
 using FESolvers, FerriteAssembly, FerriteNeumann
 using MaterialModelsBase
 import FESolvers: ScalarWrapper
+import FESolvers: getunknowns, getresidual, getjacobian 
 
 export FerriteProblem, FEDefinition, safesolve
 export savedofdata!, savenodedata!, savecelldata!, saveipdata!, saveglobaldata!
