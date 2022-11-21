@@ -17,13 +17,34 @@ struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST} # internal
     old_time::ScalarWrapper{T}
 end
 
+"""
+    cellbuffertype(def)
+
+By default, `cellbuffertype(::Any) = CellBuffer`. 
+However, if you are using the automatic differentiation, 
+much better assembly speed can be achieved by defining
+```
+FP.cellbuffertype(::FEDefinition) = AutoDiffCellBuffer
+```
+In this case, any defined `element_routine!` should 
+use `getCellBuffer(buffer)` to get a `CellBuffer` instead 
+of `AutoDiffCellBuffer`. 
+This is not necessary in `element_residual!`
+"""
+cellbuffertype(::Any) = CellBuffer
+
+# makecellbuffer could also be used to use a custom `AbstractCellBuffer`
+makecellbuffer(def) = makecellbuffer(def, cellbuffertype(def))
+makecellbuffer(def, CB::Type{CellBuffer}) = CB(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def, CB::Type{AutoDiffCellBuffer}) = CB(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+
 function FEBuffer(def::FEDefinition)
     n = ndofs(getdh(def))
     K = create_sparsity_pattern(getdh(def))
     x, r, f = (zeros(n) for _ in 1:3)
     foreach(ic->initial_conditions!(x, getdh(def), ic[1], ic[2]), pairs(def.ic))
     xold = deepcopy(x)
-    cellbuffer = CellBuffer(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+    cellbuffer = AutoDiffCellBuffer(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
     state = deepcopy(def.initialstate)
     old_state = deepcopy(def.initialstate)
     time = ScalarWrapper(0.0)
