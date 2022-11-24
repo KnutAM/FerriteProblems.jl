@@ -14,7 +14,9 @@ export FerriteProblem, FEDefinition, FerriteIO
 export safesolve
 export initial_conditions!
 
-include("initial_conditions.jl")    # Could maybe add tests and PR into Ferrite - but no time for that now...
+include("FerritePRs.jl")
+include("initial_conditions.jl")    # Should be updated and added to FerritePRs.jl...
+include("ConvergenceCriteria.jl")
 include("FEDefinition.jl")
 include("FEBuffer.jl")
 include("IO.jl")
@@ -106,6 +108,7 @@ end
 for op = (
     :getoldunknowns, :update_unknowns!, 
     :getneumannforce, :getcellbuffer, 
+    :get_tolerance_scaling,
     :gettime, :getoldtime, :update_time!,
     :getstate, :getoldstate, :update_states!, :reset_states!)
     eval(quote
@@ -161,14 +164,17 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa=nothing)
     r = FESolvers.getresidual(p)
     aold = getoldunknowns(p)
     assembler = start_assemble(K, r)
-    FerriteAssembly.doassemble!(assembler, getcellbuffer(p), state, getdh(p), a, aold, Δt)
+    scaling = get_tolerance_scaling(p).assemscaling
+    reset_scaling!(scaling)
+    FerriteAssembly.doassemble!(assembler, getcellbuffer(p), state, getdh(p), a, aold, Δt, get_tolerance_scaling(p).assemscaling)
     r .-= getneumannforce(p)
     apply_zero!(K, r, getch(p))
 end
 
-function FESolvers.calculate_convergence_measure(p::FerriteProblem)
+function FESolvers.calculate_convergence_measure(p::FerriteProblem, Δa, iter)
+    ts = get_tolerance_scaling(p)
     r = FESolvers.getresidual(p)
-    return sqrt(sum(i->r[i]^2, Ferrite.free_dofs(getch(p))))
+    return FESolvers.calculate_convergence_measure(ts, r, Δa, iter, p)
 end
 
 function FESolvers.handle_converged!(p::FerriteProblem)

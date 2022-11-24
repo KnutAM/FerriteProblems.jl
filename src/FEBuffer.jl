@@ -4,7 +4,7 @@
 A buffer to hold all values that are required to simulate, 
 but that are uniqely defined from the simulation definition
 """
-struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST} # internal 
+struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST,TS} # internal 
     K::KT
     x::Vector{T}
     r::Vector{T}
@@ -15,6 +15,7 @@ struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST} # internal
     old_state::ST
     time::ScalarWrapper{T}
     old_time::ScalarWrapper{T}
+    tolscaling::TS
 end
 
 """
@@ -49,7 +50,7 @@ function FEBuffer(def::FEDefinition)
     old_state = deepcopy(def.initialstate)
     time = ScalarWrapper(0.0)
     old_time = ScalarWrapper(0.0)
-    return FEBuffer(K, x, r, f, xold, cellbuffer, state, old_state, time, old_time)
+    return FEBuffer(K, x, r, f, xold, cellbuffer, state, old_state, time, old_time, TolScaling(def.cc, def))
 end
 
 # Standard get functions
@@ -96,6 +97,15 @@ getneumannforce(b::FEBuffer) = b.f
 Get the cell buffers used during the assembly.
 """
 getcellbuffer(b::FEBuffer) = b.cellbuffer   # Internal
+
+"""
+    FP.get_tolerance_scaling(p::FerriteProblem)
+
+Get the `TolScaling` type that controls the convergence 
+measure to be compared with the solver's tolerance
+"""
+get_tolerance_scaling(b::FEBuffer) = b.tolscaling
+
 
 # Variables that will also be updated via special functions
 # Unknowns 

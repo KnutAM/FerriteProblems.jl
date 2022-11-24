@@ -23,6 +23,7 @@ See more information below for items marked with *
   can created by `FerriteAssembly.create_states` (*)
 * `ic`: Initial conditions. NamedTuple with a function `f(x)` for each field that 
   has a nonzero initial condition. Used by the [`initial_conditions!`](@ref) function.
+* `cc::ConvergenceCriterion`: Determines how to calculate the convergence measure including scaling
 
 ## `MixedDofHandler`
 When the `MixedDofHandler` is used, we have an outer loop over each of its `FieldHandler`s.
@@ -63,7 +64,7 @@ for the cells in `getcellset(dh,key)`.
 If `MixedDofHandler`, then `initialstate[key]::NTuple{N,<:Dict{Int}}`, 
 and if `DofHandler`, then `initialstate[key]::Dict{Int}`
 """
-struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC}
+struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC,CC}
     # FE-handlers
     dh::DH  # DofHandler/MixedDofHandler
     ch::CH  # ConstraintHandler
@@ -76,15 +77,17 @@ struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC}
     initialstate::ST
     # Initial value of dofs 
     ic::IC  # NamedTuple: (fieldname=f(x),)
+    cc::CC   # Convergence criterion
 end
 function FEDefinition(;
     dh, ch, cv, m,          # Required for all simulations
     nh=NeumannHandler(dh),  # Can be just an empty handler
     bl=nothing,
     initialstate=create_empty_states(dh,m),
-    ic=()
+    ic=(),
+    cc=AbsoluteResidual()
     )
-    return FEDefinition(dh, ch, nh, cv, m, bl, initialstate, ic)
+    return FEDefinition(dh, ch, nh, cv, m, bl, initialstate, ic, cc)
 end
 
 # Note: The following functions are also overloaded for the entire ::FerriteProblem,
@@ -132,6 +135,7 @@ getmaterial(def::FEDefinition) = def.m
 Get the bodyload given to the `FEDefinition`
 """
 getbodyload(def::FEDefinition) = def.bl
+
 
 # Material Cache, default to nothing
 allocate_material_cache(def::FEDefinition) = allocate_material_cache(getmaterial(def))
