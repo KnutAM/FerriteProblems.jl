@@ -64,7 +64,7 @@ for the cells in `getcellset(dh,key)`.
 If `MixedDofHandler`, then `initialstate[key]::NTuple{N,<:Dict{Int}}`, 
 and if `DofHandler`, then `initialstate[key]::Dict{Int}`
 """
-struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC,CC}
+struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC,CC,COLOR}
     # FE-handlers
     dh::DH  # DofHandler/MixedDofHandler
     ch::CH  # ConstraintHandler
@@ -78,6 +78,8 @@ struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC,CC}
     # Initial value of dofs 
     ic::IC  # NamedTuple: (fieldname=f(x),)
     cc::CC   # Convergence criterion
+    # Threaded assembly if colors!=nothing
+    colors::COLOR
 end
 function FEDefinition(;
     dh, ch, cv, m,          # Required for all simulations
@@ -85,9 +87,10 @@ function FEDefinition(;
     bl=nothing,
     initialstate=create_empty_states(dh,m),
     ic=(),
-    cc=AbsoluteResidual()
+    cc=AbsoluteResidual(),
+    colors=nothing
     )
-    return FEDefinition(dh, ch, nh, cv, m, bl, initialstate, ic, cc)
+    return FEDefinition(dh, ch, nh, cv, m, bl, initialstate, ic, cc, colors)
 end
 
 # Note: The following functions are also overloaded for the entire ::FerriteProblem,
@@ -166,3 +169,7 @@ function create_empty_states(dh::Ferrite.AbstractDofHandler, m::Dict)
         rethrow(e)
     end
 end
+
+dothreaded(def::FEDefinition) = _dothreaded(def.colors)
+_dothreaded(::Nothing) = Val{false}()
+_dothreaded(::Any) = Val{true}()

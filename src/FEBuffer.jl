@@ -35,9 +35,10 @@ This is not necessary in `element_residual!`
 cellbuffertype(::Any) = CellBuffer
 
 # makecellbuffer could also be used to use a custom `AbstractCellBuffer`
-makecellbuffer(def) = makecellbuffer(def, cellbuffertype(def))
-makecellbuffer(def, CB::Type{CellBuffer}) = CB(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
-makecellbuffer(def, CB::Type{AutoDiffCellBuffer}) = CB(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def) = makecellbuffer(def, dothreaded(def), cellbuffertype(def))
+makecellbuffer(def, threaded::Val{false}, CB::Type{<:CellBuffer}) = CB(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def, threaded::Val{false}, CB::Type{<:AutoDiffCellBuffer}) = CB(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def, threaded::Val{true}, CB) = create_threaded_CellBuffers(makecellbuffer(def, Val{false}(), CB))
 
 function FEBuffer(def::FEDefinition)
     n = ndofs(getdh(def))
@@ -45,7 +46,7 @@ function FEBuffer(def::FEDefinition)
     x, r, f = (zeros(n) for _ in 1:3)
     foreach(ic->initial_conditions!(x, getdh(def), ic[1], ic[2]), pairs(def.ic))
     xold = deepcopy(x)
-    cellbuffer = AutoDiffCellBuffer(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+    cellbuffer = makecellbuffer(def)
     state = deepcopy(def.initialstate)
     old_state = deepcopy(def.initialstate)
     time = ScalarWrapper(0.0)

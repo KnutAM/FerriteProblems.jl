@@ -14,7 +14,24 @@ struct TolScaling{C,S,B}
     assemscaling::S # Scaling to be given to doassemble!
     buffer::B       # Buffer to hold precalculated values, such as dofs for each field
 end
-TolScaling(criterion, _) = TolScaling(criterion, nothing, nothing)
+TolScaling(criterion, def) = TolScaling(criterion, make_assemscaling(criterion, def), nothing)
+
+"""
+    make_assemscaling(criterion, def, threaded::Val{false})
+
+Create the actual assemscaling for the given `criterion`.
+
+    make_assemscaling(criterion, def, threaded::Val{true})
+
+If `threaded::Val{true}`, then call `make_assemscaling(criterion, def, ::Val{false})` 
+for each thread to support threaded assembly. Note that the function has a definition 
+`make_assemscaling(criterion,def)=make_assemscaling(criterion,def,dothreaded(def))` to simplify calling it.
+Each `criterion` should overload `make_assemscaling(criterion,def,::Val{false})`.
+The default, if not overloaded, returns `nothing`
+"""
+make_assemscaling(criterion, def) = make_assemscaling(criterion, def, dothreaded(def))
+make_assemscaling(::Any, _, ::Val{false}) = nothing
+make_assemscaling(criterion, def, ::Val{true}) = create_threaded_scalings(make_assemscaling(criterion, def, Val{false}()))
 
 """
     FESolvers.calculate_convergence_measure(::ConvergenceCriterion, scaling::TolScaling, r::Vector, Δa, iter, p::FerriteProblem)
@@ -39,9 +56,11 @@ struct RelativeResidualElementScaling{T,F<:Union{AbstractFloat,Dict{Symbol},Name
 end 
 RelativeResidualElementScaling(;p=2, minfactors=eps()) = RelativeResidualElementScaling(p, minfactors)
 
+make_assemscaling(criterion::RelativeResidualElementScaling, def, ::Val{false}) = ElementResidualScaling(getdh(def), criterion.p)
+
 function TolScaling(criterion::RelativeResidualElementScaling, def)
     dh = getdh(def)
-    assemscaling = ElementResidualScaling(dh, criterion.p)
+    assemscaling = make_assemscaling(criterion, def)
     fdofs = Ferrite.free_dofs(getch(def))
     buffer = Dict(key=>intersect!(global_dof_range(dh, key), fdofs) for key in Ferrite.getfieldnames(dh))
     return TolScaling(criterion, assemscaling, buffer)
@@ -49,7 +68,7 @@ end
 
 function FESolvers.calculate_convergence_measure(cc::RelativeResidualElementScaling, ts, r, args...)
     val = zero(eltype(r))
-    factors = ts.assemscaling.factors
+    factors = sum(ts.assemscaling).factors
     getminfactor(minfactors, args...) = minfactors
     getminfactor(minfactors::Union{Dict{Symbol},NamedTuple}, fieldname::Symbol) = minfactors[fieldname]
     minfactors = cc.minfactors

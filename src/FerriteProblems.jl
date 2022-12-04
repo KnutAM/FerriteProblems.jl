@@ -92,9 +92,9 @@ function FESolvers.postprocess!(p::FerriteProblem, step, solver)
 end
 
 # FEDefinition: Make functions work directly on `problem`:
-for op = (:getdh, :getch, :getnh, :getcv, :getmaterial, :getbodyload)
+for op = (:getdh, :getch, :getnh, :getcv, :getmaterial, :getbodyload, :dothreaded)
     eval(quote
-        FerriteProblems.$op(p::FerriteProblem) = FerriteProblems.$op(p.def)
+        $op(p::FerriteProblem) = $op(p.def)
     end)
 end
 
@@ -163,13 +163,25 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa=nothing)
     K = FESolvers.getjacobian(p)
     r = FESolvers.getresidual(p)
     aold = getoldunknowns(p)
-    assembler = start_assemble(K, r)
     scaling = get_tolerance_scaling(p).assemscaling
-    reset_scaling!(scaling)
-    FerriteAssembly.doassemble!(assembler, getcellbuffer(p), state, getdh(p), a, aold, Δt, get_tolerance_scaling(p).assemscaling)
+    _doassemble!(K, r, getcellbuffer(p), state, getdh(p), a, aold, Δt, scaling, p, dothreaded(p))
     r .-= getneumannforce(p)
     apply_zero!(K, r, getch(p))
 end
+
+function _doassemble!(K, r, cellbuffer, state, dh, a, aold, Δt, scaling, p, threaded::Val{false})
+    assembler = start_assemble(K, r)
+    reset_scaling!(scaling)
+    FerriteAssembly.doassemble!(assembler, cellbuffer, state, dh, a, aold, Δt, scaling)
+end
+
+function _doassemble!(K, r, cellbuffers, states, dh, a, aold, Δt, scalings, p, threaded::Val{true})
+    colors = p.def.colors
+    assemblers = create_threaded_assemblers(K, r);
+    reset_scaling!.(scalings)
+    doassemble!(assemblers, cellbuffers, states, dh, colors, a, aold, Δt, scalings)
+end
+
 
 function FESolvers.calculate_convergence_measure(p::FerriteProblem, Δa, iter)
     ts = get_tolerance_scaling(p)
