@@ -57,6 +57,10 @@ function FerriteProblem(def::FEDefinition, post, savefolder::String)
     FerriteProblem(def, post, FerriteIO(savefolder, def, post))
 end
 
+function Base.show(io::IO, p::FerriteProblem)
+    print(io, "FerriteProblem[ndofs=$(ndofs(getdh(p)))]")
+end
+
 """
     safesolve(solver, def::FEDefinition, args...; kwargs...)
 
