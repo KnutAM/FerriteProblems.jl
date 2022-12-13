@@ -21,6 +21,9 @@ as well as the supporting packages
 There is also extensive support for organizing your simulations 
 by saving both setup and results as `.jld2` using [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl)
 
+All unregistered dependencies, including `FerriteProblems.jl` itself, 
+is available in the [`knutamregistry`](https://github.com/KnutAM/knutamregistry)
+
 The workflow requires you to create its `FerriteProblem` type which 
 can then be solved by `FESolvers.jl`. 
 The easiest way to get started is to just follow the examples. 
