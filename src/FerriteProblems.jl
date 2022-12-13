@@ -126,10 +126,11 @@ settime!(p::FerriteProblem, t) = settime!(p.buf, t)
 
 Method for closing all open files before ending the simulation
 """
-function close_problem(p::FerriteProblem)
+function FESolvers.close_problem(p::FerriteProblem)
+    FESolvers.close_problem(p.post, p)  # User defined closing for custom postprocessing
     return close_problem(p.io, p.post)
 end
-close_problem(::Nothing, args...) = nothing # Do nothing if there is no io defined. 
+close_problem(::Any, args...) = nothing # Do nothing if there is no io defined. 
 
 addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
 
