@@ -28,7 +28,6 @@ include("MaterialModelsBase.jl")
 The main problem type that holds all variables to solve a particular problem 
 using `FESolvers`
 """
-
 struct FerriteProblem{POST,DEF<:FEDefinition,BUF<:FEBuffer,IOT}
     def::DEF
     post::POST
@@ -154,7 +153,7 @@ function FESolvers.update_to_next_step!(p::FerriteProblem, time)
     apply!(FESolvers.getunknowns(p), getch(p))
 end
 
-function FESolvers.update_problem!(p::FerriteProblem, Δa=nothing)
+function FESolvers.update_problem!(p::FerriteProblem, Δa; kwargs...)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
     if !isnothing(Δa)
