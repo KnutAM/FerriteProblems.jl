@@ -7,24 +7,28 @@
 # 
 # First we need to load all required packages
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
-using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
+using FerriteProblems, FESolvers, FerriteNeumann
 import FerriteProblems as FP
 using Plots; gr()
 
 # We then define the material by including the definitions used in the original 
 # [example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/),
-# by using the [J2Plasticity.jl file](J2Plasticity.jl)
+# by using the [J2Plasticity.jl file](J2Plasticity.jl). We have modified the 
+# names and functions to comply with 
+# [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl)
 include("J2Plasticity.jl");
 
 # This file defines the 
-# * `J2Plasticity` material type with the constructor `J2Plasticity(E,ν,σy0,H)`
-# * State variable struct with constructor `J2PlasticityMaterialState()`
-# * `compute_stress_tangent(ϵ, material, old_state) -> σ, D, state` function
+# * `J2Plasticity<:AbstractMaterial` material type with the constructor `J2Plasticity(E,ν,σy0,H)`
+# * State variable struct `J2PlasticityMaterialState<:AbstractMaterialState`
+# * The MaterialModelsBase function `initial_material_state` and `material_response`
+# For a single material according to the `MaterialModelsBase` interface, the element is already 
+# included in FerriteProblems, see `src/MaterialModelsBase.jl`
 
 # ## Problem definition
 # We first create the problem's definition
 
-traction_function(time) = time*1.e7 # N/m²
+traction_function(time) = time*1.e7 # N/m² 
 
 function setup_problem_definition()
     ## Define material properties
@@ -49,7 +53,7 @@ function setup_problem_definition()
     add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
 
     ## Initial material states
-    states = create_states(dh, x->J2PlasticityMaterialState(), cv)
+    states = create_states(dh, x->initial_material_state(material), cv)
 
     return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
 end;
@@ -59,34 +63,8 @@ end;
 # the `assemble_cell!` in the original example, except that 
 # 1) We don't have to `reinit!` as `FerriteAssembly` does that before calling
 # 2) The traction is handled by `FerriteNeumann` and is not done for each cell
-
-function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector, state::AbstractVector,
-    ue::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues, 
-    args...)
-    n_basefuncs = getnbasefunctions(cellvalues)
-    for q_point in 1:getnquadpoints(cellvalues)
-        ## For each integration point, compute stress and material stiffness
-        ϵ = function_symmetric_gradient(cellvalues, q_point, ue) # Total strain
-        σ, D, state[q_point] = compute_stress_tangent(ϵ, material, state[q_point])
-
-        dΩ = getdetJdV(cellvalues, q_point)
-        for i in 1:n_basefuncs
-            δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
-            re[i] += (δϵ ⊡ σ) * dΩ # add internal force to residual
-            for j in 1:n_basefuncs
-                Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
-                Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
-            end
-        end
-    end
-end;
-
-# At this point, we can define 
-# `problem = FerriteProblem(setup_problem_definition())`, which can be solved 
-# with `FESolvers.jl`'s `solve_problem!`. 
-# But to get any results apart from the final state, we need to define 
-# the postprocessing after each step.
+# For convenience, this element is already implemented for materials of 
+# MaterialModelsBase type `AbstractMaterial`, and we don't need to define it here. 
 
 # ## Setup postprocessing
 # In contrast to the original example, 
