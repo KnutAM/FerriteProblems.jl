@@ -3,54 +3,59 @@ CurrentModule = FerriteProblems
 ```
 
 # API
-## Main types and running simulations
+The main types below are exported. 
+Remaining functions are not exported to avoid polluting the 
+name space. *Tip:* To simplify calling the following functions
+it is possible to write `import FerriteProblems as FP` as is done
+in the examples. 
+
+## Main types
 ```@docs
 FerriteProblem
 FEDefinition
 FerriteIO
-safesolve
-FP.close_problem
 ```
 
 ## Access functions
 ```@docs
-FP.getdh
-FP.getch
-FP.getnh
-FP.getcv
-FP.getmaterial
-FP.getbodyload
-FP.getjacobian
-FP.getunknowns
-FP.getresidual
-FP.getneumannforce
-FP.getoldunknowns
-FP.getstate
-FP.getoldstate
-FP.gettime
-FP.getoldtime
+FerriteProblems.getdh
+FerriteProblems.getch
+FerriteProblems.getnh
+FerriteProblems.getcv
+FerriteProblems.getmaterial
+FerriteProblems.getbodyload
+FerriteProblems.getjacobian
+FerriteProblems.getunknowns
+FerriteProblems.getresidual
+FerriteProblems.getneumannforce
+FerriteProblems.getoldunknowns
+FerriteProblems.getstate
+FerriteProblems.getoldstate
+FerriteProblems.gettime
+FerriteProblems.getoldtime
 ```
 
 ## Special cases
 ```@docs
-FP.allocate_material_cache
+FerriteProblems.allocate_material_cache
 ```
 
 ## Saving and loading data
 ```@docs
 FESolvers.postprocess!
-FP.addstep!
-FP.gettimedata
-FP.savedofdata!
-FP.getdofdata
-FP.savenodedata!
-FP.getnodedata
-FP.savecelldata!
-FP.getcelldata
-FP.saveipdata!
-FP.getipdata
-FP.saveglobaldata!
-FP.getglobaldata
-FP.getdef
-FP.getpost
+FerriteProblems.close_postprocessing
+FerriteProblems.addstep!
+FerriteProblems.gettimedata
+FerriteProblems.savedofdata!
+FerriteProblems.getdofdata
+FerriteProblems.savenodedata!
+FerriteProblems.getnodedata
+FerriteProblems.savecelldata!
+FerriteProblems.getcelldata
+FerriteProblems.saveipdata!
+FerriteProblems.getipdata
+FerriteProblems.saveglobaldata!
+FerriteProblems.getglobaldata
+FerriteProblems.getdef
+FerriteProblems.getpost
 ```

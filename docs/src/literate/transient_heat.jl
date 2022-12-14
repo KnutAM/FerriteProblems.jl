@@ -12,6 +12,7 @@
 #
 # First we load required packages
 using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
+import FerriteProblems as FP
 
 # ## Physics
 # First, we need to define the material behavior. 
@@ -87,8 +88,9 @@ PostProcessing() = PostProcessing(paraview_collection("transient-heat.pvd"));
 # And the postprocessing function that is called after each time step
 function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
     @info "postprocessing step $step"
-    vtk_grid("transient-heat-$step", p.def.dh) do vtk
-        vtk_point_data(vtk, p.def.dh, FESolvers.getunknowns(p))
+    dh = FP.getdh(p)
+    vtk_grid("transient-heat-$step", dh) do vtk
+        vtk_point_data(vtk, dh, FP.getunknowns(p))
         vtk_save(vtk)
         post.pvd[step] = vtk
     end

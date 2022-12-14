@@ -8,11 +8,7 @@ using MaterialModelsBase
 import FESolvers: ScalarWrapper
 import FESolvers: getunknowns, getresidual, getjacobian 
 
-const FP = FerriteProblems # Provide shorthand instead of exporting all functions
-export FP
 export FerriteProblem, FEDefinition, FerriteIO
-export safesolve
-export initial_conditions!
 
 include("FerritePRs.jl")
 include("initial_conditions.jl")    # Should be updated and added to FerritePRs.jl...
@@ -61,24 +57,6 @@ function Base.show(io::IO, p::FerriteProblem)
 end
 
 """
-    safesolve(solver, def::FEDefinition, args...; kwargs...)
-
-Starts by creating `FerriteProblem` from `def` and `args/kwargs` 
-and then wraps the call to `FESolvers.solve_problem!` in 
-`try ... finally` to ensure that [`close_problem`](@ref) is 
-called even in the case of no convergence.  
-"""
-function safesolve(solver, def::FEDefinition, args...; kwargs...)
-    problem = FerriteProblem(def, args...; kwargs...)
-    try
-        solve_problem!(solver, problem)
-    finally
-        close_problem(problem)
-    end
-    return problem
-end
-
-"""
     FESolvers.postprocess!(p::FerriteProblem, step, solver)
 
 When `FESolvers` call this function for `p::FerriteProblem`, 
@@ -101,7 +79,7 @@ for op = (:getdh, :getch, :getnh, :getcv, :getmaterial, :getbodyload, :dothreade
     end)
 end
 
-# FEBuffer: Make functions work directly on `problem`:
+    # FEBuffer: Make functions work directly on `problem`:
 for op = (:getunknowns, :getresidual, :getjacobian)
     eval(quote
         FESolvers.$op(p::FerriteProblem) = FESolvers.$op(p.buf)
@@ -120,17 +98,21 @@ for op = (
 end
 settime!(p::FerriteProblem, t) = settime!(p.buf, t)
 
-# FerriteIO: Make close_problem work on the problem, see IO.jl for definition
 """
-    close_problem(p::FerriteProblem)
+    close_postprocessing(post::MyPostType, p::FerriteProblem)
 
-Method for closing all open files before ending the simulation
+This function is called to close any open files manually created during 
+the postprocessing with the custom postprocessing type `MyPostType`. 
+Note that the file streams in p.io::FerriteIO are 
+automatically closed and don't require any special handling.
 """
+close_postprocessing(args...) = nothing
+
+# FerriteIO: Make close_problem work on the problem, see IO.jl for definition
 function FESolvers.close_problem(p::FerriteProblem)
-    FESolvers.close_problem(p.post, p)  # User defined closing for custom postprocessing
-    return close_problem(p.io, p.post)
+    close_postprocessing(p.post, p)  # User defined closing for custom postprocessing
+    close_io(p.io, p.post)           # FerriteIO function for closing those streams
 end
-close_problem(::Any, args...) = nothing # Do nothing if there is no io defined. 
 
 addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
 

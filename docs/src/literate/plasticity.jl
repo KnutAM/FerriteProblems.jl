@@ -8,7 +8,7 @@
 # First we need to load all required packages
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
-
+import FerriteProblems as FP
 using Plots; gr()
 
 # We then define the material by including the definitions used in the original 
@@ -102,9 +102,9 @@ end
 PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 
 # With this postprocessing type, we can now define the postprocessing in FESolvers.
-# Note that `FerriteProblems` exports `const FP=FerriteProblems` to avoid polluting
-# the namespace with many exported functions. It is also possible to access the
-# `FESolvers` functions `getunknowns`, `getresidual`, and `getjacobian` via `FP`
+# Note that, internally, FerriteProblems imports the FESolvers functions 
+# `getunknowns`, `getjacobian`, and `getresidual`, such that you can access these 
+# via `FerriteProblems.` (or `FP.` if using the `import FerriteProblems as FP` above).
 # For convenience, `FerriteProblems` will call `FESolvers.postprocess!` with the 
 # `post` as the first argument making it easy to dispatch on: 
 function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
@@ -148,19 +148,22 @@ function example_solution()
 
     ## Fixed uniform time steps
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(;num_steps=25,Δt=0.04))
-    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    solve_problem!(solver, problem)
     plt = plot_results(problem, label="uniform", markershape=:x, markersize=5)
 
     ## Same time steps as Ferrite example, overwrite results by specifying the same folder
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
-    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    solve_problem!(solver, problem)
     plot_results(problem, plt=plt, label="fixed", markershape=:circle)
     umax_solution[1] = problem.post.umag[end] # Save value for comparison  #hide
 
     ## Adaptive time stepping, save results to new folder
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
-    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "B"))
+    problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "B"))
+    solve_problem!(solver, problem)
     plot_results(problem, plt=plt, label="adaptive", markershape=:circle)
     
     plot!(;legend=:bottomright)

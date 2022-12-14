@@ -78,16 +78,20 @@ Get the path of the data file number `num` in `io.datafiles`
 """
 datafilepath(io::FerriteIO, num=length(io.datafiles)) = filepath(io, io.datafiles[num]) # internal
 
-function close_problem(io::FerriteIO, post=nothing)
+"""
+    close_io(io::FerriteIO, post)
+
+Close the currently open file in `io`, then the postprocessing 
+struct to a jld2 file (if not `post != nothing`),
+before finally saving the current `io` object to a .jld2 file
+"""
+function close_io(io::FerriteIO, post)   # internal
     close(io.fileobject[])
-    if !isnothing(post)
-        jldsave(filepath(io, io.postfile); post=post)
-    end
+    isnothing(post) || jldsave(filepath(io, io.postfile); post=post)
     jldsave(joinpath(io.folder[], "FerriteIO.jld2"), io=io)
 end
-
-# Is this used?
-Base.close(io::FerriteIO) = close(io.fileobject[]) # internal
+# Do nothing if there is no io defined. 
+close_io(args...) = nothing 
 
 """
     new_file!
