@@ -5,8 +5,8 @@ allocate_material_cache(m::AbstractMaterial) = get_cache(m)
 function FerriteAssembly.element_routine!(
     Ke::AbstractMatrix, re::AbstractVector, state::Vector{<:AbstractMaterialState},
     ae::AbstractVector, material::AbstractMaterial, cellvalues::CellVectorValues, 
-    dh_fh, Δt, cb::CellBuffer)
-    buffer = getcellbuffer(cb)  # To support AutoDiffCellBuffer
+    dh_fh, Δt, cb::FerriteAssembly.AbstractCellBuffer)
+    buffer = FerriteAssembly.getCellBuffer(cb)
     cache = buffer.cache
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
