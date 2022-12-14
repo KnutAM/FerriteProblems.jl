@@ -7,7 +7,7 @@
 # 
 # First we need to load all required packages
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
-using FerriteProblems, FESolvers, FerriteNeumann
+using FerriteProblems, FESolvers, FerriteNeumann, FerriteAssembly
 import FerriteProblems as FP
 using Plots; gr()
 
@@ -31,28 +31,28 @@ include("J2Plasticity.jl");
 traction_function(time) = time*1.e7 # N/m² 
 
 function setup_problem_definition()
-    ## Define material properties
+    ## Define material properties ("J2Plasticity.jl" file)
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
     
-    ## Cell and facevalues
+    ## Cell and facevalues (`Ferrite.jl`)
     interpolation = Lagrange{3, RefTetrahedron, 1}()
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
     fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
 
-    ## Grid and degrees of freedom
+    ## Grid and degrees of freedom (`Ferrite.jl`)
     grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
     dh = DofHandler(grid); push!(dh, :u, 3, interpolation); close!(dh)
 
-    ## Constraints (Dirichlet boundary conditions)
+    ## Constraints (Dirichlet boundary conditions, `Ferrite.jl`)
     ch = ConstraintHandler(dh)
     add!(ch, Dirichlet(:u, getfaceset(grid, "left"), (x,t) -> zeros(3), [1, 2, 3]))
     close!(ch)
 
-    ## Neumann boundary conditions
+    ## Neumann boundary conditions (`FerriteNeumann.jl`)
     nh = NeumannHandler(dh)
     add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
 
-    ## Initial material states
+    ## Initial material states (using FerriteAssembly's `create_states`)
     states = create_states(dh, x->initial_material_state(material), cv)
 
     return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
