@@ -71,7 +71,7 @@ function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
     end
 end;
 
-function FESolvers.close_problem(post::PostProcessing, p)
+function FP.close_postprocessing(post::PostProcessing, p)
     vtk_save(post.pvd)
 end;
 

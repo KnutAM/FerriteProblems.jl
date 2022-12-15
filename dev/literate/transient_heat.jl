@@ -97,9 +97,9 @@ function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
 end;
 
 # At the end of the simulation, we want to finish all IO operations. 
-# We can then define the function `close_problem` which will be called 
+# We can then define the function `close_postprocessing` which will be called 
 # even in the case that an error is thrown during the simulation
-function FESolvers.close_problem(post::PostProcessing, p)
+function FP.close_postprocessing(post::PostProcessing, p)
     vtk_save(post.pvd)
 end;
 

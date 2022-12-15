@@ -60,7 +60,7 @@ PostProcessing() = PostProcessing(paraview_collection(&quot;transient-heat.pvd&q
         vtk_save(vtk)
         post.pvd[step] = vtk
     end
-end;</code></pre><p>At the end of the simulation, we want to finish all IO operations. We can then define the function <code>close_problem</code> which will be called even in the case that an error is thrown during the simulation</p><pre><code class="language-julia hljs">function FESolvers.close_problem(post::PostProcessing, p)
+end;</code></pre><p>At the end of the simulation, we want to finish all IO operations. We can then define the function <code>close_postprocessing</code> which will be called even in the case that an error is thrown during the simulation</p><pre><code class="language-julia hljs">function FP.close_postprocessing(post::PostProcessing, p)
     vtk_save(post.pvd)
 end;</code></pre><p>And now we create the problem type, and define the QuasiStaticSolver with the LinearProblemSolver as well as fixed time steps</p><pre><code class="language-julia hljs">def = create_definition()
 post = PostProcessing()
@@ -337,7 +337,7 @@ function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
     end
 end;
 
-function FESolvers.close_problem(post::PostProcessing, p)
+function FP.close_postprocessing(post::PostProcessing, p)
     vtk_save(post.pvd)
 end;
 
@@ -348,4 +348,4 @@ solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTim
 
 solve_problem!(solver, problem);
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Thursday 15 December 2022 10:07">Thursday 15 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Thursday 15 December 2022 10:23">Thursday 15 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
