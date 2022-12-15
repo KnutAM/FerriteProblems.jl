@@ -4,7 +4,7 @@ using Documenter
 const is_ci = get(ENV, "CI", "false") == "true"
 
 include("generate.jl")
-examples = ["plasticity.jl", "transient_heat.jl"]
+examples = ["plasticity.jl", "transient_heat.jl", "incompressible_elasticity.jl"]
 GENERATEDEXAMPLES = [joinpath("examples", replace(f, ".jl"=>".md")) for f in examples]
 
 # Build examples, see `generate.jl`
