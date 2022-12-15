@@ -1,6 +1,6 @@
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
-using FerriteProblems, FESolvers, FerriteAssembly, FerriteNeumann
-
+using FerriteProblems, FESolvers, FerriteNeumann, FerriteAssembly
+import FerriteProblems as FP
 using Plots; gr()
 
 include("J2Plasticity.jl");
@@ -8,53 +8,31 @@ include("J2Plasticity.jl");
 traction_function(time) = time*1.e7 # N/m²
 
 function setup_problem_definition()
-    # Define material properties
+    # Define material properties ("J2Plasticity.jl" file)
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
 
-    # Cell and facevalues
+    # Cell and facevalues (`Ferrite.jl`)
     interpolation = Lagrange{3, RefTetrahedron, 1}()
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
     fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
 
-    # Grid and degrees of freedom
+    # Grid and degrees of freedom (`Ferrite.jl`)
     grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
     dh = DofHandler(grid); push!(dh, :u, 3, interpolation); close!(dh)
 
-    # Constraints (Dirichlet boundary conditions)
+    # Constraints (Dirichlet boundary conditions, `Ferrite.jl`)
     ch = ConstraintHandler(dh)
     add!(ch, Dirichlet(:u, getfaceset(grid, "left"), (x,t) -> zeros(3), [1, 2, 3]))
     close!(ch)
 
-    # Neumann boundary conditions
+    # Neumann boundary conditions (`FerriteNeumann.jl`)
     nh = NeumannHandler(dh)
     add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
 
-    # Initial material states
-    states = create_states(dh, x->J2PlasticityMaterialState(), cv)
+    # Initial material states (using FerriteAssembly's `create_states`)
+    states = create_states(dh, x->initial_material_state(material), cv)
 
     return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
-end;
-
-function FerriteAssembly.element_routine!(
-    Ke::AbstractMatrix, re::AbstractVector, state::AbstractVector,
-    ue::AbstractVector, material::J2Plasticity, cellvalues::CellVectorValues,
-    args...)
-    n_basefuncs = getnbasefunctions(cellvalues)
-    for q_point in 1:getnquadpoints(cellvalues)
-        # For each integration point, compute stress and material stiffness
-        ϵ = function_symmetric_gradient(cellvalues, q_point, ue) # Total strain
-        σ, D, state[q_point] = compute_stress_tangent(ϵ, material, state[q_point])
-
-        dΩ = getdetJdV(cellvalues, q_point)
-        for i in 1:n_basefuncs
-            δϵ = shape_symmetric_gradient(cellvalues, q_point, i)
-            re[i] += (δϵ ⊡ σ) * dΩ # add internal force to residual
-            for j in 1:n_basefuncs
-                Δϵ = shape_symmetric_gradient(cellvalues, q_point, j)
-                Ke[i, j] += δϵ ⊡ D ⊡ Δϵ * dΩ
-            end
-        end
-    end
 end;
 
 struct PlasticityPostProcess{T}
@@ -97,19 +75,22 @@ function example_solution()
 
     # Fixed uniform time steps
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(;num_steps=25,Δt=0.04))
-    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    solve_problem!(solver, problem)
     plt = plot_results(problem, label="uniform", markershape=:x, markersize=5)
 
     # Same time steps as Ferrite example, overwrite results by specifying the same folder
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
-    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
+    solve_problem!(solver, problem)
     plot_results(problem, plt=plt, label="fixed", markershape=:circle)
     umax_solution[1] = problem.post.umag[end] # Save value for comparison  #hide
 
     # Adaptive time stepping, save results to new folder
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
-    problem = safesolve(solver, def, PlasticityPostProcess(), joinpath(pwd(), "B"))
+    problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "B"))
+    solve_problem!(solver, problem)
     plot_results(problem, plt=plt, label="adaptive", markershape=:circle)
 
     plot!(;legend=:bottomright)

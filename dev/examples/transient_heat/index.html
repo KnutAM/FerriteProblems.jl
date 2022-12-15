@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Linear Time Dependent Problem · FerriteProblems.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://KnutAM.github.io/FerriteProblems.jl/examples/transient_heat/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteProblems.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../plasticity/">Plasticity</a></li><li class="is-active"><a class="tocitem" href>Linear Time Dependent Problem</a><ul class="internal"><li><a class="tocitem" href="#Commented-Program"><span>Commented Program</span></a></li><li><a class="tocitem" href="#Physics"><span>Physics</span></a></li><li><a class="tocitem" href="#Postprocessing"><span>Postprocessing</span></a></li><li><a class="tocitem" href="#transient_heat_equation-plain-program"><span>Plain program</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Linear Time Dependent Problem</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Linear Time Dependent Problem</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/KnutAM/FerriteProblems.jl/blob/main/docs/src/literate/transient_heat.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Linear-Time-Dependent-Problem"><a class="docs-heading-anchor" href="#Linear-Time-Dependent-Problem">Linear Time Dependent Problem</a><a id="Linear-Time-Dependent-Problem-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Time-Dependent-Problem" title="Permalink"></a></h1><p>This example is the same example as <a href="https://knutam.github.io/FESolvers.jl/dev/examples/transient_heat/"><code>FESolvers.jl</code>&#39;s transient heat flow</a> which was taken from <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/examples/transient_heat_equation/"><code>Ferrite.jl</code>&#39;s transient heat flow</a>. Please see the theoretical derivations in those examples, with the specific formulation used here in the former.</p><h2 id="Commented-Program"><a class="docs-heading-anchor" href="#Commented-Program">Commented Program</a><a id="Commented-Program-1"></a><a class="docs-heading-anchor-permalink" href="#Commented-Program" title="Permalink"></a></h2><p>Now we solve the problem by using FerriteProblems. The full program, without comments, can be found in the next <a href="#transient_heat_equation-plain-program">section</a>.</p><p>First we load required packages</p><pre><code class="language-julia hljs">using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
+import FerriteProblems as FP</code></pre><h2 id="Physics"><a class="docs-heading-anchor" href="#Physics">Physics</a><a id="Physics-1"></a><a class="docs-heading-anchor-permalink" href="#Physics" title="Permalink"></a></h2><p>First, we need to define the material behavior.</p><pre><code class="language-julia hljs">Base.@kwdef struct FicksLaw{T}
+    k::T=1.0e-3    # Thermal conductivity
+    f::T=5.0e-1    # Constant heat source
+end</code></pre><p>where we could have defined the heat source using the bodyload type available via the cellbuffer, but it is not necessary for a constant heat source.</p><p>We then define element routine following <code>FerriteAssembly</code></p><pre><code class="language-julia hljs">function FerriteAssembly.element_routine!(
+    Ke, re, state, ue, m::FicksLaw, cellvalues, dh_fh, Δt, buffer
+    )
+    ue_old = buffer.ae_old  # Extract old values from the CellBuffer (TODO: Perhaps good to have get-functions for this)
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        dΩ = getdetJdV(cellvalues, q_point)
+        u = function_value(cellvalues, q_point, ue)
+        uold = function_value(cellvalues, q_point, ue_old)
+        ∇u = function_gradient(cellvalues, q_point, ue)
+        for i in 1:n_basefuncs
+            δN = shape_value(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
+            re[i] += (δN * (u - uold - Δt * m.f) + Δt * m.k * ∇δN ⋅ ∇u) * dΩ
+            for j in 1:n_basefuncs
+                N = shape_value(cellvalues, q_point, j)
+                ∇N = shape_gradient(cellvalues, q_point, j)
+                Ke[i, j] += (δN*N + Δt * m.k * (∇δN ⋅ ∇N)) * dΩ
+            end
+        end
+    end
+end;</code></pre><p>We start by a function that will create the problem definition</p><pre><code class="language-julia hljs">function create_definition()
+    # **Grid**
+    grid = generate_grid(Quadrilateral, (100, 100));
+
+    # **Cell values**
+    cellvalues = CellScalarValues(
+        QuadratureRule{2, RefCube}(2),
+        Lagrange{2, RefCube, 1}());
+
+    # **Degrees of freedom**
+    # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
+    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+
+    # **Boundary conditions**
+    # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
+    max_temp = 100; t_rise = 100
+    ch = ConstraintHandler(dh);
+    ∂Ω₁ = union(getfaceset.((grid,), [&quot;left&quot;, &quot;right&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₁, (x, t) -&gt; 0));
+    ∂Ω₂ = union(getfaceset.((grid,), [&quot;top&quot;, &quot;bottom&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₂, (x, t) -&gt; max_temp * clamp(t / t_rise, 0, 1)))
+    close!(ch)
+
+    # Create and return the `FEDefinition`
+    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FicksLaw())
+end;</code></pre><h2 id="Postprocessing"><a class="docs-heading-anchor" href="#Postprocessing">Postprocessing</a><a id="Postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing" title="Permalink"></a></h2><p>After defining all the physics and problem setup, we must decide what data to save. In this example, we use the vtk-file exports as in the original example. To this end, we define the custom postprocessing struct</p><pre><code class="language-julia hljs">struct PostProcessing{PVD}
+    pvd::PVD
+end
+PostProcessing() = PostProcessing(paraview_collection(&quot;transient-heat.pvd&quot;));</code></pre><p>And the postprocessing function that is called after each time step</p><pre><code class="language-julia hljs">function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+    @info &quot;postprocessing step $step&quot;
+    dh = FP.getdh(p)
+    vtk_grid(&quot;transient-heat-$step&quot;, dh) do vtk
+        vtk_point_data(vtk, dh, FP.getunknowns(p))
+        vtk_save(vtk)
+        post.pvd[step] = vtk
+    end
+end;</code></pre><p>At the end of the simulation, we want to finish all IO operations. We can then define the function <code>close_problem</code> which will be called even in the case that an error is thrown during the simulation</p><pre><code class="language-julia hljs">function FESolvers.close_problem(post::PostProcessing, p)
+    vtk_save(post.pvd)
+end;</code></pre><p>And now we create the problem type, and define the QuasiStaticSolver with the LinearProblemSolver as well as fixed time steps</p><pre><code class="language-julia hljs">def = create_definition()
+post = PostProcessing()
+problem = FerriteProblem(def, post)
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(collect(0.0:1.0:200)));</code></pre><p>Finally, we can solve the problem</p><pre><code class="language-julia hljs">solve_problem!(solver, problem);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: postprocessing step 2
+[ Info: postprocessing step 3
+[ Info: postprocessing step 4
+[ Info: postprocessing step 5
+[ Info: postprocessing step 6
+[ Info: postprocessing step 7
+[ Info: postprocessing step 8
+[ Info: postprocessing step 9
+[ Info: postprocessing step 10
+[ Info: postprocessing step 11
+[ Info: postprocessing step 12
+[ Info: postprocessing step 13
+[ Info: postprocessing step 14
+[ Info: postprocessing step 15
+[ Info: postprocessing step 16
+[ Info: postprocessing step 17
+[ Info: postprocessing step 18
+[ Info: postprocessing step 19
+[ Info: postprocessing step 20
+[ Info: postprocessing step 21
+[ Info: postprocessing step 22
+[ Info: postprocessing step 23
+[ Info: postprocessing step 24
+[ Info: postprocessing step 25
+[ Info: postprocessing step 26
+[ Info: postprocessing step 27
+[ Info: postprocessing step 28
+[ Info: postprocessing step 29
+[ Info: postprocessing step 30
+[ Info: postprocessing step 31
+[ Info: postprocessing step 32
+[ Info: postprocessing step 33
+[ Info: postprocessing step 34
+[ Info: postprocessing step 35
+[ Info: postprocessing step 36
+[ Info: postprocessing step 37
+[ Info: postprocessing step 38
+[ Info: postprocessing step 39
+[ Info: postprocessing step 40
+[ Info: postprocessing step 41
+[ Info: postprocessing step 42
+[ Info: postprocessing step 43
+[ Info: postprocessing step 44
+[ Info: postprocessing step 45
+[ Info: postprocessing step 46
+[ Info: postprocessing step 47
+[ Info: postprocessing step 48
+[ Info: postprocessing step 49
+[ Info: postprocessing step 50
+[ Info: postprocessing step 51
+[ Info: postprocessing step 52
+[ Info: postprocessing step 53
+[ Info: postprocessing step 54
+[ Info: postprocessing step 55
+[ Info: postprocessing step 56
+[ Info: postprocessing step 57
+[ Info: postprocessing step 58
+[ Info: postprocessing step 59
+[ Info: postprocessing step 60
+[ Info: postprocessing step 61
+[ Info: postprocessing step 62
+[ Info: postprocessing step 63
+[ Info: postprocessing step 64
+[ Info: postprocessing step 65
+[ Info: postprocessing step 66
+[ Info: postprocessing step 67
+[ Info: postprocessing step 68
+[ Info: postprocessing step 69
+[ Info: postprocessing step 70
+[ Info: postprocessing step 71
+[ Info: postprocessing step 72
+[ Info: postprocessing step 73
+[ Info: postprocessing step 74
+[ Info: postprocessing step 75
+[ Info: postprocessing step 76
+[ Info: postprocessing step 77
+[ Info: postprocessing step 78
+[ Info: postprocessing step 79
+[ Info: postprocessing step 80
+[ Info: postprocessing step 81
+[ Info: postprocessing step 82
+[ Info: postprocessing step 83
+[ Info: postprocessing step 84
+[ Info: postprocessing step 85
+[ Info: postprocessing step 86
+[ Info: postprocessing step 87
+[ Info: postprocessing step 88
+[ Info: postprocessing step 89
+[ Info: postprocessing step 90
+[ Info: postprocessing step 91
+[ Info: postprocessing step 92
+[ Info: postprocessing step 93
+[ Info: postprocessing step 94
+[ Info: postprocessing step 95
+[ Info: postprocessing step 96
+[ Info: postprocessing step 97
+[ Info: postprocessing step 98
+[ Info: postprocessing step 99
+[ Info: postprocessing step 100
+[ Info: postprocessing step 101
+[ Info: postprocessing step 102
+[ Info: postprocessing step 103
+[ Info: postprocessing step 104
+[ Info: postprocessing step 105
+[ Info: postprocessing step 106
+[ Info: postprocessing step 107
+[ Info: postprocessing step 108
+[ Info: postprocessing step 109
+[ Info: postprocessing step 110
+[ Info: postprocessing step 111
+[ Info: postprocessing step 112
+[ Info: postprocessing step 113
+[ Info: postprocessing step 114
+[ Info: postprocessing step 115
+[ Info: postprocessing step 116
+[ Info: postprocessing step 117
+[ Info: postprocessing step 118
+[ Info: postprocessing step 119
+[ Info: postprocessing step 120
+[ Info: postprocessing step 121
+[ Info: postprocessing step 122
+[ Info: postprocessing step 123
+[ Info: postprocessing step 124
+[ Info: postprocessing step 125
+[ Info: postprocessing step 126
+[ Info: postprocessing step 127
+[ Info: postprocessing step 128
+[ Info: postprocessing step 129
+[ Info: postprocessing step 130
+[ Info: postprocessing step 131
+[ Info: postprocessing step 132
+[ Info: postprocessing step 133
+[ Info: postprocessing step 134
+[ Info: postprocessing step 135
+[ Info: postprocessing step 136
+[ Info: postprocessing step 137
+[ Info: postprocessing step 138
+[ Info: postprocessing step 139
+[ Info: postprocessing step 140
+[ Info: postprocessing step 141
+[ Info: postprocessing step 142
+[ Info: postprocessing step 143
+[ Info: postprocessing step 144
+[ Info: postprocessing step 145
+[ Info: postprocessing step 146
+[ Info: postprocessing step 147
+[ Info: postprocessing step 148
+[ Info: postprocessing step 149
+[ Info: postprocessing step 150
+[ Info: postprocessing step 151
+[ Info: postprocessing step 152
+[ Info: postprocessing step 153
+[ Info: postprocessing step 154
+[ Info: postprocessing step 155
+[ Info: postprocessing step 156
+[ Info: postprocessing step 157
+[ Info: postprocessing step 158
+[ Info: postprocessing step 159
+[ Info: postprocessing step 160
+[ Info: postprocessing step 161
+[ Info: postprocessing step 162
+[ Info: postprocessing step 163
+[ Info: postprocessing step 164
+[ Info: postprocessing step 165
+[ Info: postprocessing step 166
+[ Info: postprocessing step 167
+[ Info: postprocessing step 168
+[ Info: postprocessing step 169
+[ Info: postprocessing step 170
+[ Info: postprocessing step 171
+[ Info: postprocessing step 172
+[ Info: postprocessing step 173
+[ Info: postprocessing step 174
+[ Info: postprocessing step 175
+[ Info: postprocessing step 176
+[ Info: postprocessing step 177
+[ Info: postprocessing step 178
+[ Info: postprocessing step 179
+[ Info: postprocessing step 180
+[ Info: postprocessing step 181
+[ Info: postprocessing step 182
+[ Info: postprocessing step 183
+[ Info: postprocessing step 184
+[ Info: postprocessing step 185
+[ Info: postprocessing step 186
+[ Info: postprocessing step 187
+[ Info: postprocessing step 188
+[ Info: postprocessing step 189
+[ Info: postprocessing step 190
+[ Info: postprocessing step 191
+[ Info: postprocessing step 192
+[ Info: postprocessing step 193
+[ Info: postprocessing step 194
+[ Info: postprocessing step 195
+[ Info: postprocessing step 196
+[ Info: postprocessing step 197
+[ Info: postprocessing step 198
+[ Info: postprocessing step 199
+[ Info: postprocessing step 200
+[ Info: postprocessing step 201</code></pre><h2 id="transient_heat_equation-plain-program"><a class="docs-heading-anchor" href="#transient_heat_equation-plain-program">Plain program</a><a id="transient_heat_equation-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#transient_heat_equation-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../transient_heat.jl"><code>transient_heat.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
+import FerriteProblems as FP
+
+Base.@kwdef struct FicksLaw{T}
+    k::T=1.0e-3    # Thermal conductivity
+    f::T=5.0e-1    # Constant heat source
+end
+
+function FerriteAssembly.element_routine!(
+    Ke, re, state, ue, m::FicksLaw, cellvalues, dh_fh, Δt, buffer
+    )
+    ue_old = buffer.ae_old  # Extract old values from the CellBuffer (TODO: Perhaps good to have get-functions for this)
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        dΩ = getdetJdV(cellvalues, q_point)
+        u = function_value(cellvalues, q_point, ue)
+        uold = function_value(cellvalues, q_point, ue_old)
+        ∇u = function_gradient(cellvalues, q_point, ue)
+        for i in 1:n_basefuncs
+            δN = shape_value(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
+            re[i] += (δN * (u - uold - Δt * m.f) + Δt * m.k * ∇δN ⋅ ∇u) * dΩ
+            for j in 1:n_basefuncs
+                N = shape_value(cellvalues, q_point, j)
+                ∇N = shape_gradient(cellvalues, q_point, j)
+                Ke[i, j] += (δN*N + Δt * m.k * (∇δN ⋅ ∇N)) * dΩ
+            end
+        end
+    end
+end;
+
+function create_definition()
+    # **Grid**
+    grid = generate_grid(Quadrilateral, (100, 100));
+
+    # **Cell values**
+    cellvalues = CellScalarValues(
+        QuadratureRule{2, RefCube}(2),
+        Lagrange{2, RefCube, 1}());
+
+    # **Degrees of freedom**
+    # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
+    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+
+    # **Boundary conditions**
+    # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
+    max_temp = 100; t_rise = 100
+    ch = ConstraintHandler(dh);
+    ∂Ω₁ = union(getfaceset.((grid,), [&quot;left&quot;, &quot;right&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₁, (x, t) -&gt; 0));
+    ∂Ω₂ = union(getfaceset.((grid,), [&quot;top&quot;, &quot;bottom&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₂, (x, t) -&gt; max_temp * clamp(t / t_rise, 0, 1)))
+    close!(ch)
+
+    # Create and return the `FEDefinition`
+    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FicksLaw())
+end;
+
+struct PostProcessing{PVD}
+    pvd::PVD
+end
+PostProcessing() = PostProcessing(paraview_collection(&quot;transient-heat.pvd&quot;));
+
+function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+    @info &quot;postprocessing step $step&quot;
+    dh = FP.getdh(p)
+    vtk_grid(&quot;transient-heat-$step&quot;, dh) do vtk
+        vtk_point_data(vtk, dh, FP.getunknowns(p))
+        vtk_save(vtk)
+        post.pvd[step] = vtk
+    end
+end;
+
+function FESolvers.close_problem(post::PostProcessing, p)
+    vtk_save(post.pvd)
+end;
+
+def = create_definition()
+post = PostProcessing()
+problem = FerriteProblem(def, post)
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(collect(0.0:1.0:200)));
+
+solve_problem!(solver, problem);
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Thursday 15 December 2022 10:07">Thursday 15 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -1,4 +1,11 @@
-struct J2Plasticity{T, S <: SymmetricTensor{4, 3, T}}
+# This file is based on 
+# [`Ferrite.jl`'s plasticity example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/)
+# But modified to follow the [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl)
+# interface. 
+using MaterialModelsBase
+import MaterialModelsBase as MMB
+
+struct J2Plasticity{T, S <: SymmetricTensor{4, 3, T}} <: AbstractMaterial
     G::T  # Shear modulus
     K::T  # Bulk modulus
     σ₀::T # Initial yield limit
@@ -17,14 +24,14 @@ function J2Plasticity(E, ν, σ₀, H)
     return J2Plasticity(G, K, σ₀, H, Dᵉ)
 end;
 
-struct J2PlasticityMaterialState{T, S <: SecondOrderTensor{3, T}}
+struct J2PlasticityMaterialState{T, S <: SecondOrderTensor{3, T}}  <: AbstractMaterialState
     ## Store "converged" values
     ϵᵖ::S # plastic strain
     σ::S # stress
     k::T # hardening variable
 end
 
-function J2PlasticityMaterialState()
+function MMB.initial_material_state(::J2Plasticity)
     return J2PlasticityMaterialState(
                 zero(SymmetricTensor{2, 3}),
                 zero(SymmetricTensor{2, 3}),
@@ -36,7 +43,7 @@ function vonMises(σ)
     return sqrt(3.0/2.0 * s ⊡ s)
 end;
 
-function compute_stress_tangent(ϵ::SymmetricTensor{2, 3}, material::J2Plasticity, state::J2PlasticityMaterialState)
+function MMB.material_response(material::J2Plasticity, ϵ::SymmetricTensor{2, 3}, state::J2PlasticityMaterialState, args...; kwargs...)
     ## unpack some material parameters
     G = material.G
     H = material.H
