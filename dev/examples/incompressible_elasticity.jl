@@ -3,8 +3,6 @@ using FerriteNeumann, FerriteAssembly, FerriteProblems
 using FESolvers
 import FerriteProblems as FP
 
-# Problem setup
-
 function create_cook_grid(nx, ny)
     corners = [Vec{2}((0.0,   0.0)),
                Vec{2}((48.0, 44.0)),
@@ -154,8 +152,8 @@ linear    = Lagrange{2,RefTetrahedron,1}()
 quadratic = Lagrange{2,RefTetrahedron,2}()
 p1 = build_problem(ν, linear, linear)
 p2 = build_problem(ν, quadratic, linear)
-solve_problem!(solver, p1)
-solve_problem!(solver, p2)
+solve_problem!(p1, solver)
+solve_problem!(p2, solver)
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 

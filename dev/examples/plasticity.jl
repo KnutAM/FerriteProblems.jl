@@ -1,7 +1,7 @@
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteNeumann, FerriteAssembly
 import FerriteProblems as FP
-using Plots; gr()
+using Plots; gr();
 
 include("J2Plasticity.jl");
 
@@ -76,13 +76,13 @@ function example_solution()
     # Fixed uniform time steps
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(;num_steps=25,Δt=0.04))
     problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
-    solve_problem!(solver, problem)
+    solve_problem!(problem, solver)
     plt = plot_results(problem, label="uniform", markershape=:x, markersize=5)
 
     # Same time steps as Ferrite example, overwrite results by specifying the same folder
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
     problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
-    solve_problem!(solver, problem)
+    solve_problem!(problem, solver)
     plot_results(problem, plt=plt, label="fixed", markershape=:circle)
     umax_solution[1] = problem.post.umag[end] # Save value for comparison  #hide
 
@@ -90,7 +90,7 @@ function example_solution()
     ts = AdaptiveTimeStepper(0.05, 1.0; Δt_min=0.01, Δt_max=0.2)
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
     problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "B"))
-    solve_problem!(solver, problem)
+    solve_problem!(problem, solver)
     plot_results(problem, plt=plt, label="adaptive", markershape=:circle)
 
     plot!(;legend=:bottomright)

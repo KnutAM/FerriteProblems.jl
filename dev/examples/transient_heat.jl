@@ -62,12 +62,14 @@ end
 PostProcessing() = PostProcessing(paraview_collection("transient-heat.pvd"));
 
 function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
-    @info "postprocessing step $step"
-    dh = FP.getdh(p)
-    vtk_grid("transient-heat-$step", dh) do vtk
-        vtk_point_data(vtk, dh, FP.getunknowns(p))
-        vtk_save(vtk)
-        post.pvd[step] = vtk
+    if step < 5 || mod(step, 20) == 0
+        @info "postprocessing step $step"
+        dh = FP.getdh(p)
+        vtk_grid("transient-heat-$step", dh) do vtk
+            vtk_point_data(vtk, dh, FP.getunknowns(p))
+            vtk_save(vtk)
+            post.pvd[step] = vtk
+        end
     end
 end;
 
@@ -80,7 +82,7 @@ post = PostProcessing()
 problem = FerriteProblem(def, post)
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(collect(0.0:1.0:200)));
 
-solve_problem!(solver, problem);
+solve_problem!(problem, solver);
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
 
