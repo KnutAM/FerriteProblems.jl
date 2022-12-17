@@ -12,7 +12,7 @@ using FerriteNeumann, FerriteAssembly, FerriteProblems
 using FESolvers
 import FerriteProblems as FP
 
-## Problem setup
+# ## Problem setup
 # First we generate a simple grid, specifying the 4 corners of Cooks membrane.
 function create_cook_grid(nx, ny)
     corners = [Vec{2}((0.0,   0.0)),
