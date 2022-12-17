@@ -1,3 +1,13 @@
+"""
+initial_conditions!(
+    a::AbstractVector, dh::DofHandler, field::Symbol, f::Function, 
+    cellset=1:getncells(dh.grid),
+    ip_geo=_default_interpolation(dh)
+    )
+
+Apply initial conditions using the function `f`
+"""
+function initial_conditions! end
 
 @static if isdefined(Ferrite, :apply_analytical!)
     initial_conditions!(args...; kwargs...) = apply_analytical!(args...; kwargs...)
@@ -14,16 +24,7 @@ else
     function _default_interpolation(dh::DofHandler)
         return Ferrite.default_interpolation(typeof(getcells(dh.grid, 1)))
     end
-
-    """
-        initial_conditions!(
-            a::AbstractVector, dh::DofHandler, field::Symbol, f::Function, 
-            cellset=1:getncells(dh.grid),
-            ip_geo=_default_interpolation(dh)
-            )
-
-    Apply initial conditions using the function `f`
-    """
+    
     function initial_conditions!(
         a::AbstractVector, dh::DofHandler, field::Symbol, f::Function, 
         cellset=1:getncells(dh.grid),
