@@ -96,28 +96,28 @@ end
 # Note: The following functions are also overloaded for the entire ::FerriteProblem,
 # and only this version is documented. 
 """
-    FP.getdh(p::FerriteProblem)
+    FerriteProblems.getdh(p::FerriteProblem)
 
 Get `dh::Ferrite.AbstractDofHandler` from the `FEDefinition`
 """
 getdh(def::FEDefinition) = def.dh
 
 """
-    FP.getch(p::FerriteProblem)
+    FerriteProblems.getch(p::FerriteProblem)
 
 Get the `ConstraintHandler` from the `FEDefinition`
 """
 getch(def::FEDefinition) = def.ch
 
 """
-    FP.getnh(p::FerriteProblem)
+    FerriteProblems.getnh(p::FerriteProblem)
 
 Get the `NeumannHandler` from the `FEDefinition`
 """
 getnh(def::FEDefinition) = def.nh
 
 """
-    FP.getcv(p::FerriteProblem)
+    FerriteProblems.getcv(p::FerriteProblem)
 
 Get the cell values from the `FEDefinition`. 
 Note that this could also be a `Tuple` or `NamedTuple` depending on 
@@ -126,14 +126,14 @@ what was initially given to `FEDefinition`
 getcv(def::FEDefinition) = def.cv
 
 """
-    FP.getmaterial(p::FerriteProblem)
+    FerriteProblems.getmaterial(p::FerriteProblem)
 
 Get the material from the `FEDefinition`
 """
 getmaterial(def::FEDefinition) = def.m
 
 """
-    FP.getbodyload(p::FerriteProblem)
+    FerriteProblems.getbodyload(p::FerriteProblem)
 
 Get the bodyload given to the `FEDefinition`
 """
@@ -145,7 +145,7 @@ allocate_material_cache(def::FEDefinition) = allocate_material_cache(getmaterial
 allocate_material_cache(materials::Dict) = Dict(key=allocate_material_cache(material) for (key,material) in materials)
 allocate_material_cache(materials::Union{Tuple,NamedTuple}) = map(allocate_material_cache, materials)
 """
-    FP.allocate_material_cache(material)
+    FerriteProblems.allocate_material_cache(material)
 
 In case the material requires a cache to be available during the element routine,
 this function can be overloaded for the specific material to define such a cache
@@ -155,7 +155,7 @@ allocate_material_cache(::Any) = nothing
 
 # Default state creation (when not used)
 """
-    FP.create_empty_states(dh, material)
+    FerriteProblems.create_empty_states(dh, material)
 
 Used to create empty states in case state variables aren't used in the simulation
 by calling `FerriteAssembly.create_states` without any input (returning nothing for each cell)

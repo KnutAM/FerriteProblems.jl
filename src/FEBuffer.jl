@@ -25,7 +25,7 @@ By default, `cellbuffertype(::Any) = CellBuffer`.
 However, if you are using the automatic differentiation, 
 much better assembly speed can be achieved by defining
 ```
-FP.cellbuffertype(::FEDefinition) = AutoDiffCellBuffer
+FerriteProblems.cellbuffertype(::FEDefinition) = AutoDiffCellBuffer
 ```
 In this case, any defined `element_routine!` should 
 use `getCellBuffer(buffer)` to get a `CellBuffer` instead 
@@ -56,34 +56,34 @@ end
 
 # Standard get functions
 """
-    FP.getjacobian(p::FerriteProblem)
+    FerriteProblems.getjacobian(p::FerriteProblem)
 
 Get the current jacobian matrix from `p`. 
 Note that this function belongs to `FESolvers.jl`,
-but can be accessed via `FP.getjacobian`
+but can be accessed via `FerriteProblems.getjacobian`
 """
 getjacobian(b::FEBuffer) = b.K
 
 """
-    FP.getunknowns(p::FerriteProblem)
+    FerriteProblems.getunknowns(p::FerriteProblem)
 
 Get the current vector of unknowns from `p`. 
 Note that this function belongs to `FESolvers.jl`,
-but can be accessed via `FP.getunknowns`
+but can be accessed via `FerriteProblems.getunknowns`
 """
 getunknowns(b::FEBuffer) = b.x
 
 """
-    FP.getresidual(p::FerriteProblem)
+    FerriteProblems.getresidual(p::FerriteProblem)
 
 Get the current residual vector from `p`. 
 Note that this function belongs to `FESolvers.jl`,
-but can be accessed via `FP.getresidual`
+but can be accessed via `FerriteProblems.getresidual`
 """
 getresidual(b::FEBuffer) = b.r
 
 """
-    FP.getneumannforce(p::FerriteProblem)
+    FerriteProblems.getneumannforce(p::FerriteProblem)
 
 Get the current external force vector caused by 
 Neumann boundary conditions. Note that this vector 
@@ -93,14 +93,14 @@ cell assembly; only forces added with the `NeumannHandler`
 getneumannforce(b::FEBuffer) = b.f 
 
 """
-    FP.getcellbuffer(p::FerriteProblem)
+    FerriteProblems.getcellbuffer(p::FerriteProblem)
 
 Get the cell buffers used during the assembly.
 """
 getcellbuffer(b::FEBuffer) = b.cellbuffer   # Internal
 
 """
-    FP.get_tolerance_scaling(p::FerriteProblem)
+    FerriteProblems.get_tolerance_scaling(p::FerriteProblem)
 
 Get the `TolScaling` type that controls the convergence 
 measure to be compared with the solver's tolerance
@@ -111,14 +111,14 @@ get_tolerance_scaling(b::FEBuffer) = b.tolscaling
 # Variables that will also be updated via special functions
 # Unknowns 
 """
-    FP.getoldunknowns(p::FerriteProblem)
+    FerriteProblems.getoldunknowns(p::FerriteProblem)
 
 Get the vector of unknowns from the previously converged step
 """
 getoldunknowns(b::FEBuffer) = b.xold 
 
 """
-    FP.update_unknowns!(p::FerriteProblem)
+    FerriteProblems.update_unknowns!(p::FerriteProblem)
 
 Update the vector of "old" unknowns to the values of the current vector of unknowns
 """
@@ -126,21 +126,21 @@ update_unknowns!(b::FEBuffer) = copy!(b.xold, b.x) # internal
 
 # State variables
 """
-    FP.getstate(p::FerriteProblem)
+    FerriteProblems.getstate(p::FerriteProblem)
 
 Get the current state variables
 """
 getstate(b::FEBuffer) = b.state
 
 """
-    FP.getoldstate(p::FerriteProblem)
+    FerriteProblems.getoldstate(p::FerriteProblem)
 
 Get the state variables from the previously converged step
 """
 getoldstate(b::FEBuffer) = b.old_state
 
 """
-    FP.copy_states!(to, from)
+    FerriteProblems.copy_states!(to, from)
 
 Perform a "`deepcopy!`" of states in `from` into `to`.
 """
@@ -160,7 +160,7 @@ end
 @inline copy_states!(::Val{false}, to::Vector, from::Vector) = copy!(to,deepcopy(from))
 
 """
-    FP.update_states!(p::FerriteProblem)
+    FerriteProblems.update_states!(p::FerriteProblem)
 
 Update the "old" state variables to the current values.
 Called after convergence
@@ -168,7 +168,7 @@ Called after convergence
 update_states!(b::FEBuffer) = copy_states!(b.old_state, getstate(b)) # internal
 
 """
-    FP.reset_states!(p::FerriteProblem)
+    FerriteProblems.reset_states!(p::FerriteProblem)
 
 Reset the current state variables to the old state values. 
 Called after each solution iteration unless the solution has converged. 
@@ -177,21 +177,21 @@ reset_states!(b::FEBuffer) = copy_states!(b.state, getoldstate(b))  # internal
 
 # Time
 """
-    FP.gettime(p::FerriteProblem)
+    FerriteProblems.gettime(p::FerriteProblem)
 
 Get the current time
 """
 gettime(b::FEBuffer) = b.time[]
 
 """
-    FP.getoldtime(p::FerriteProblem)
+    FerriteProblems.getoldtime(p::FerriteProblem)
 
 Get time of the previous converged step
 """
 getoldtime(b::FEBuffer) = b.old_time[]
 
 """
-    FP.settime!(p::FerriteProblem, new_time)
+    FerriteProblems.settime!(p::FerriteProblem, new_time)
 
 Set the current time to `new_time`
 Called when starting a new step (or when attempting the same 
@@ -200,7 +200,7 @@ step number with a new time increment)
 settime!(b::FEBuffer, new_time) = (b.time[] = new_time) # internal
 
 """
-    FP.update_time!(p::FerriteProblem)
+    FerriteProblems.update_time!(p::FerriteProblem)
 
 Update the old time to the current time. 
 Called after convergence
