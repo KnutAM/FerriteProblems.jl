@@ -13,6 +13,7 @@
 # First we load required packages
 using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
 import FerriteProblems as FP
+import FerriteAssembly as FA
 
 # ## Physics
 # First, we need to define the material behavior. 
@@ -28,7 +29,7 @@ end
 function FerriteAssembly.element_routine!(
     Ke, re, state, ue, m::FicksLaw, cellvalues, dh_fh, Δt, buffer
     )
-    ue_old = buffer.ae_old  # Extract old values from the CellBuffer (TODO: Perhaps good to have get-functions for this)
+    ue_old = FA.get_aeold(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
         dΩ = getdetJdV(cellvalues, q_point)
@@ -48,6 +49,7 @@ function FerriteAssembly.element_routine!(
     end
 end;
 
+# ## Problem setup
 # We start by a function that will create the problem definition
 function create_definition()
     ## **Grid**
