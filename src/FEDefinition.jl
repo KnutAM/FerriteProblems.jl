@@ -141,17 +141,30 @@ getbodyload(def::FEDefinition) = def.bl
 
 
 # Material Cache, default to nothing
-allocate_material_cache(def::FEDefinition) = allocate_material_cache(getmaterial(def))
-allocate_material_cache(materials::Dict) = Dict(key=allocate_material_cache(material) for (key,material) in materials)
-allocate_material_cache(materials::Union{Tuple,NamedTuple}) = map(allocate_material_cache, materials)
 """
-    FerriteProblems.allocate_material_cache(material)
+    FerriteProblems.allocate_material_cache(material, cellvalues)
 
 In case the material requires a cache to be available during the element routine,
 this function can be overloaded for the specific material to define such a cache
 to be included in the `FerriteAssembly.CellBuffer`
 """
-allocate_material_cache(::Any) = nothing
+allocate_material_cache(args...) = nothing
+
+# Top level call from definition
+allocate_material_cache(def::FEDefinition) = allocate_material_cache(getmaterial(def), getcv(def))
+
+# Multiple materials
+function allocate_material_cache(materials::Dict, cellvalues)
+    mtrl_keys = keys(materials)
+    cv_ = FerriteAssembly._makedict(cellvalues, mtrl_keys)
+    return Dict(key=allocate_material_cache(material[key], cv_[key]) for key in mtrl_keys)
+end
+
+# MixedDofHandler
+function allocate_material_cache(materials::Tuple, cellvalues)
+    cv_ = FerriteAssembly._maketuple(cellvalues, length(materials))
+    return map(allocate_material_cache, materials, cv_)
+end
 
 # Default state creation (when not used)
 """

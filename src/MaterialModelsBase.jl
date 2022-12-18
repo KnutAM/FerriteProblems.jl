@@ -1,6 +1,6 @@
 # Mechanical materials that are defined according to the `MaterialModelsBase.jl`
 # have already built-in support for convenience
-allocate_material_cache(m::AbstractMaterial) = get_cache(m)
+allocate_material_cache(m::AbstractMaterial, args...) = get_cache(m)
 
 function FerriteAssembly.element_routine!(
     Ke::AbstractMatrix, re::AbstractVector, state::Vector{<:AbstractMaterialState},

@@ -78,6 +78,13 @@ function LinearElasticity(;Emod, ν)
     return LinearElasticity(Gmod, Kmod)
 end
 
+# Define a cache for the material, as used in the original example
+function FP.allocate_material_cache(::LinearElasticity, cv::NamedTuple)
+    cellvalues_u = cv[:u]
+    return collect([symmetric(shape_gradient(cellvalues_u, 1, i)) for i in 1:getnbasefunctions(cellvalues_u)])
+end
+
+
 function create_definition(ν, ip_u, ip_p)
     grid = create_cook_grid(50, 50)
     dh = create_dofhandler(grid, ip_u, ip_p)
@@ -114,8 +121,8 @@ function FerriteAssembly.element_routine!(
     Ke_pu = @view Ke[pdofs,udofs]
     Ke_pp = @view Ke[pdofs,pdofs]
 
-    ## Temporary, should be cached
-    ∇Nu_sym_dev = zeros(SymmetricTensor{2,2,Float64,3}, n_basefuncs_u)
+    ## Extract cached gradients
+    ∇Nu_sym_dev = buffer.cache
 
     ## We only assemble lower half triangle of the stiffness matrix and then symmetrize it.
     for q_point in 1:getnquadpoints(cellvalues_u)
@@ -180,6 +187,11 @@ p1 = build_problem(ν, linear, linear)
 p2 = build_problem(ν, quadratic, linear)
 solve_problem!(p1, solver)
 solve_problem!(p2, solver)
+
+## delete the output                        #src
+# Comment out if needed                     #src
+rm("cook_linear_linear.vtu"; force=true)    #src
+rm("cook_quadratic_linear.vtu"; force=true) #src
 
 ## test the result                 #src
 using Test                         #src
