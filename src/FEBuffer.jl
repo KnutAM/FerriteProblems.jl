@@ -155,6 +155,8 @@ function copy_states!(to::T, from::T) where T<:Dict{Int,<:Vector}
         copy_states!(to[key], fromval)
     end
 end
+copy_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}} = nothing 
+
 @inline copy_states!(to::T, from::T) where T<:Vector{ET} where ET = copy_states!(Val{isbitstype(ET)}(), to, from)
 @inline copy_states!(::Val{true}, to::Vector, from::Vector) = copy!(to,from)
 @inline copy_states!(::Val{false}, to::Vector, from::Vector) = copy!(to,deepcopy(from))
