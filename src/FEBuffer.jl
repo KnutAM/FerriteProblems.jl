@@ -36,8 +36,8 @@ cellbuffertype(::Any) = CellBuffer
 
 # makecellbuffer could also be used to use a custom `AbstractCellBuffer`
 makecellbuffer(def) = makecellbuffer(def, dothreaded(def), cellbuffertype(def))
-makecellbuffer(def, threaded::Val{false}, CB::Type{<:CellBuffer}) = CB(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
-makecellbuffer(def, threaded::Val{false}, CB::Type{<:AutoDiffCellBuffer}) = CB(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def, threaded::Val{false}, CB::Type{<:CellBuffer}) = setup_cellbuffer(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def, threaded::Val{false}, CB::Type{<:AutoDiffCellBuffer}) = setup_ad_cellbuffer(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
 makecellbuffer(def, threaded::Val{true}, CB) = create_threaded_CellBuffers(makecellbuffer(def, Val{false}(), CB))
 
 function FEBuffer(def::FEDefinition)
