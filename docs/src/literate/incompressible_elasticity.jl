@@ -11,6 +11,7 @@ using Ferrite
 using FerriteNeumann, FerriteAssembly, FerriteProblems
 using FESolvers
 import FerriteProblems as FP
+import FerriteAssembly as FA
 
 # ## Problem setup
 # First we generate a simple grid, specifying the 4 corners of Cooks membrane.
@@ -122,7 +123,7 @@ function FerriteAssembly.element_routine!(
     Ke_pp = @view Ke[pdofs,pdofs]
 
     ## Extract cached gradients
-    ∇Nu_sym_dev = buffer.cache
+    ∇Nu_sym_dev = FA.get_cache(buffer)
 
     ## We only assemble lower half triangle of the stiffness matrix and then symmetrize it.
     for q_point in 1:getnquadpoints(cellvalues_u)
