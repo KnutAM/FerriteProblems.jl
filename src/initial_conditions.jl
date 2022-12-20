@@ -5,7 +5,9 @@ initial_conditions!(
     ip_geo=_default_interpolation(dh)
     )
 
-Apply initial conditions using the function `f`
+Apply initial conditions using the function `f`. When available, `Ferrite.apply_analytical!`
+is used. Note that in the future, this function will be depreciated and 
+`Ferrite.apply_analytical!` will be used directly instead. 
 """
 function initial_conditions! end
 

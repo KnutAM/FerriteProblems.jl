@@ -22,8 +22,9 @@ include("J2Plasticity.jl");
 # * `J2Plasticity<:AbstractMaterial` material type with the constructor `J2Plasticity(E,ν,σy0,H)`
 # * State variable struct `J2PlasticityMaterialState<:AbstractMaterialState`
 # * The MaterialModelsBase function `initial_material_state` and `material_response`
-# For a single material according to the `MaterialModelsBase` interface, the element is already 
-# included in FerriteProblems, see `src/MaterialModelsBase.jl`
+# For a single material according to the `MaterialModelsBase` interface, 
+# `FerriteAssembly.element_routine!` and `FerriteAssembly.create_cell_state` are already 
+# included in FerriteProblems, see `src/MaterialModelsBase.jl`.
 
 # ## Problem definition
 # We first create the problem's definition
@@ -52,10 +53,7 @@ function setup_problem_definition()
     nh = NeumannHandler(dh)
     add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
 
-    ## Initial material states (using FerriteAssembly's `create_states`)
-    states = create_states(dh, x->initial_material_state(material), cv)
-
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material)
 end;
 
 # For the problem at hand, we need to define the element routine, 

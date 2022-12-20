@@ -1,9 +1,10 @@
 """
     FEDefinition(dh, ch, nh, cv, m, bl, initialstate, ic)
-    FEDefinition(;dh, ch, cv, m,
-        nh=NeumannHandler(dh), bl=nothing,
-        initialstate=create_empty_states(dh,m),
-        ic=(),
+    FEDefinition(;
+        dh, ch, cv, m,
+        nh=NeumannHandler(dh), bl=nothing, ic=(), 
+        initialstate=_create_states(dh,m,cv,ic),
+        cc=AbsoluteResidual(), colors=nothing,
         )
 
 The definition of the FE-problem, this data describes the finite 
@@ -19,11 +20,13 @@ See more information below for items marked with *
 * `cv`: The cellvalues, e.g. `CellValues` (*)
 * `m`: The material definition, user defined type - passed into element. (*)
 * `bl`: Source term/body load, user defined type - available from the element routine (*)
-* `initialstate`: The initial state variables for each cell in the grid, 
-  can created by `FerriteAssembly.create_states` (*)
-* `ic`: Initial conditions. NamedTuple with a function `f(x)` for each field that 
-  has a nonzero initial condition. Used by the [`initial_conditions!`](@ref) function.
+* `ic`: Initial conditions. NamedTuple with a function `f(x)` for each field that has a nonzero 
+  initial condition. Used by the [`FerriteProblems.initial_conditions!`](@ref) function.
+* `initialstate`: The initial state variables for each cell in the grid. By default, this is 
+  automatically created by `FerriteAssembly.create_states` with customization provided by
+  overloading `FerriteAssembly.create_cell_state`
 * `cc::ConvergenceCriterion`: Determines how to calculate the convergence measure including scaling
+* `colors`: Supply to use threaded assembly, can be created by `Ferrite.create_coloring`
 
 ## `MixedDofHandler`
 When the `MixedDofHandler` is used, we have an outer loop over each of its `FieldHandler`s.
@@ -74,10 +77,11 @@ struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC,CC,COLOR}
     cv::CV  # cellvalues
     m::M    # material
     bl::BL  # body loads/source terms
-    initialstate::ST
-    # Initial value of dofs 
+    # Initial values
     ic::IC  # NamedTuple: (fieldname=f(x),)
-    cc::CC   # Convergence criterion
+    initialstate::ST
+    # Convergence criterion
+    cc::CC   
     # Threaded assembly if colors!=nothing
     colors::COLOR
 end
@@ -85,12 +89,12 @@ function FEDefinition(;
     dh, ch, cv, m,          # Required for all simulations
     nh=NeumannHandler(dh),  # Can be just an empty handler
     bl=nothing,
-    initialstate=create_empty_states(dh,m),
     ic=(),
+    initialstate=_create_states(dh,m,cv,ic),
     cc=AbsoluteResidual(),
     colors=nothing
     )
-    return FEDefinition(dh, ch, nh, cv, m, bl, initialstate, ic, cc, colors)
+    return FEDefinition(dh, ch, nh, cv, m, bl, ic, initialstate, cc, colors)
 end
 
 # Note: The following functions are also overloaded for the entire ::FerriteProblem,
@@ -98,28 +102,28 @@ end
 """
     FerriteProblems.getdh(p::FerriteProblem)
 
-Get `dh::Ferrite.AbstractDofHandler` from the `FEDefinition`
+Get `dh::Ferrite.AbstractDofHandler` from the `FerriteProblem`
 """
 getdh(def::FEDefinition) = def.dh
 
 """
     FerriteProblems.getch(p::FerriteProblem)
 
-Get the `ConstraintHandler` from the `FEDefinition`
+Get the `ConstraintHandler` from the `FerriteProblem`
 """
 getch(def::FEDefinition) = def.ch
 
 """
     FerriteProblems.getnh(p::FerriteProblem)
 
-Get the `NeumannHandler` from the `FEDefinition`
+Get the `NeumannHandler` from the `FerriteProblem`
 """
 getnh(def::FEDefinition) = def.nh
 
 """
     FerriteProblems.getcv(p::FerriteProblem)
 
-Get the cell values from the `FEDefinition`. 
+Get the cell values from the `FerriteProblem`. 
 Note that this could also be a `Tuple` or `NamedTuple` depending on 
 what was initially given to `FEDefinition`
 """
@@ -128,14 +132,14 @@ getcv(def::FEDefinition) = def.cv
 """
     FerriteProblems.getmaterial(p::FerriteProblem)
 
-Get the material from the `FEDefinition`
+Get the material from the `FerriteProblem`
 """
 getmaterial(def::FEDefinition) = def.m
 
 """
     FerriteProblems.getbodyload(p::FerriteProblem)
 
-Get the bodyload given to the `FEDefinition`
+Get the bodyload given to the `FerriteProblem`
 """
 getbodyload(def::FEDefinition) = def.bl
 
@@ -166,23 +170,27 @@ function allocate_material_cache(materials::Tuple, cellvalues)
     return map(allocate_material_cache, materials, cv_)
 end
 
-# Default state creation (when not used)
 """
-    FerriteProblems.create_empty_states(dh, material)
+    _create_states(dh::AbstractDofHandler, material, cellvalues, initial_conditions)
 
-Used to create empty states in case state variables aren't used in the simulation
-by calling `FerriteAssembly.create_states` without any input (returning nothing for each cell)
+Create the state variables by calling `FerriteAssembly.create_states` after calculating 
+the degree of freedom values with [`FerriteProblems.initial_conditions!`](@ref) and the 
+`initial_conditions` input.  
 """
-create_empty_states(dh::Ferrite.AbstractDofHandler, ::Any) = create_states(dh)  # internal
-function create_empty_states(dh::Ferrite.AbstractDofHandler, m::Dict)
-    try     
-        return Dict(key=>create_states(dh, getcellset(dh, key)) for key in keys(m))
-    catch e
-        isa(e, KeyError) && println("If the material is a Dict, each key must correspond to a cellset in the grid")
-        rethrow(e)
+function _create_states(dh, material, cellvalues, initial_conditions)
+    a = zeros(ndofs(dh))
+    if length(initial_conditions) > 0
+        foreach(ic->initial_conditions!(a, dh, ic[1], ic[2]), pairs(initial_conditions))
     end
+    create_states(dh, material, cellvalues, a)
 end
 
+"""
+    dothreaded(def::FEDefinition)
+
+Trait-based dispatch to determine if threaded assembly should be used.
+Returns a `Val{t::Bool}`. 
+"""
 dothreaded(def::FEDefinition) = _dothreaded(def.colors)
 _dothreaded(::Nothing) = Val{false}()
 _dothreaded(::Any) = Val{true}()

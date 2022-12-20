@@ -1,5 +1,7 @@
 # # Porous media 
 
+# **Note:** *Theory preliminary and not checked for correctness*
+# 
 # Porous media is a two-phase material, consisting of solid parts and a liquid occupying
 # the pores inbetween. 
 # Using the porous media theory, we can model such a material without explicitly 
@@ -111,6 +113,7 @@ using Ferrite, FerriteMeshParser, Tensors
 using FerriteAssembly, FerriteProblems, FerriteNeumann, FESolvers
 using MaterialModelsBase
 import FerriteProblems as FP
+import MaterialModelsBase as MMB
 
 # ## Physics
 # ### Elastic material 
@@ -129,6 +132,11 @@ function Elastic(;E=20.e3, ν=0.3)
     I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
     E4 = 2G*I4dev + K*I4vol
     return Elastic(G, K, E4)
+end;
+
+function MMB.material_response(m::Elastic, ϵ, args...; kwargs...)
+    σ = m.E4 ⊡ ϵ
+    return σ, m.E4, NoMaterialState()
 end;
 
 # ### Poroelastic material
@@ -216,7 +224,7 @@ end
 # for each element type. These 4 sets will later be used in their own `FieldHandler`
 function get_grid()
     ## Import grid from abaqus mesh
-    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p25.inp"))
+    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p75.inp"))
 
     ## Create cellsets for each fieldhandler
     addcellset!(grid, "solid3", intersect(getcellset(grid, "solid"), getcellset(grid, "CPS3")))
@@ -287,6 +295,7 @@ function PostProcess(filestem="porous_media")
 end
 
 function FESolvers.postprocess!(post::PostProcess, p, step)
+    @info "Postprocessing step $step"
     vtk_grid("$(post.filestem)-$step", FP.getdh(p)) do vtk
         vtk_point_data(vtk, FP.getdh(p), FP.getunknowns(p))
         vtk_save(vtk)

@@ -66,10 +66,13 @@ the following function
 
 is called where `post=p.post` (unless you define a different override). 
 This allows you to easily define the dispatch on your postprocessing 
-type as `FESolvers.postprocess!(post::MyPostType, p, step, solver)`
+type as `FESolvers.postprocess!(post::MyPostType, p, step[, solver])`
 """
 function FESolvers.postprocess!(p::FerriteProblem, step, solver)
     return FESolvers.postprocess!(p.post, p, step, solver)
+end
+function FESolvers.postprocess!(post, p::FerriteProblem, step, solver)
+    return FESolvers.postprocess!(post, p, step)
 end
 
 # FEDefinition: Make functions work directly on `problem`:
