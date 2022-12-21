@@ -4,13 +4,28 @@ using Documenter
 const is_ci = get(ENV, "CI", "false") == "true"
 
 include("generate.jl")
-examples = ["plasticity.jl", "transient_heat.jl", "incompressible_elasticity.jl"]
+examples = ["plasticity.jl", "transient_heat.jl", "incompressible_elasticity.jl", "porous_media.jl"]
 GENERATEDEXAMPLES = [joinpath("examples", replace(f, ".jl"=>".md")) for f in examples]
 
 # Build examples, see `generate.jl`
 build_examples(examples)
 
 DocMeta.setdocmeta!(FerriteProblems, :DocTestSetup, :(using FerriteProblems); recursive=true)
+
+#= Temp testing custom macros...
+jax = Documenter.MathJax(Dict(:TeX => Dict(
+    :equationNumbers => Dict(:autoNumber => "AMS"),
+    :Macros => Dict(
+        :intO => ["{\\int_\\Omega #1 \\ \\mathrm{d}\\Omega}", 1],
+        :mytest => "a"
+    ),
+)))
+
+katex=Documenter.KaTeX(Dict(:Macros=>Dict(
+    :intO => ["{\\int_\\Omega #1 \\ \\mathrm{d}\\Omega}", 1],
+    :mytest => "a"
+    )))
+=#
 
 makedocs(;
     modules=[FerriteProblems],

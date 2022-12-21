@@ -10,8 +10,7 @@ import FESolvers: getunknowns, getresidual, getjacobian
 
 export FerriteProblem, FEDefinition, FerriteIO
 
-include("FerritePRs.jl")
-include("initial_conditions.jl")    # Should be updated and added to FerritePRs.jl...
+include("FerritePRs/include_prs.jl")
 include("ConvergenceCriteria.jl")
 include("FEDefinition.jl")
 include("FEBuffer.jl")
@@ -66,13 +65,13 @@ the following function
 
 is called where `post=p.post` (unless you define a different override). 
 This allows you to easily define the dispatch on your postprocessing 
-type as `FESolvers.postprocess!(post::MyPostType, p, step[, solver])`
+type as `FESolvers.postprocess!(post::MyPostType, p, step, solver)`
+Note that the `solver` input argument is required, but can be 
+accounted for by defining, e.g. 
+`FESolvers.postprocess!(post::MyPostType, p, step, args...)`
 """
 function FESolvers.postprocess!(p::FerriteProblem, step, solver)
     return FESolvers.postprocess!(p.post, p, step, solver)
-end
-function FESolvers.postprocess!(post, p::FerriteProblem, step, solver)
-    return FESolvers.postprocess!(post, p, step)
 end
 
 # FEDefinition: Make functions work directly on `problem`:
