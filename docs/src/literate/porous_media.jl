@@ -189,6 +189,10 @@ function get_grid()
     addcellset!(grid, "solid4", intersect(getcellset(grid, "solid"), getcellset(grid, "CPS4R")))
     addcellset!(grid, "porous3", intersect(getcellset(grid, "porous"), getcellset(grid, "CPS3")))
     addcellset!(grid, "porous4", intersect(getcellset(grid, "porous"), getcellset(grid, "CPS4R")))
+
+    ## Create faceset for the sides and top 
+    addfaceset!(grid, "sides", x->(first(x) < eps() || first(x) ≈ 5.0))
+    addfaceset!(grid, "top", x->(last(x) ≈ 10.0))
     return grid
 end
 
@@ -223,23 +227,35 @@ function create_definition(;t_rise=0.1, p_max=100.0)
            (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin)),
            (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin)) )
 
-    ## Add boundary conditions, use code from PR427.jl to make more general
+    ## Add boundary conditions
+    ## * x-displacements zero on sides
+    ## * y-displacements zero on bottom
+    ## * Normal traction (Neumann) on top 
+    ## * Zero pressure on top 
+    ## * Remaining pressure boundaries sealed
+    ## 
+    ## Use `Ferrite.jl` PR427 (temporary included in FerriteProblems.jl) 
+    ## to make Dirichlet conditions easier and more generalgit
     ch = ConstraintHandler(dh);
-    ## With #PR427 (keep code for if/when it is merged - old code)
-    ## add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), (x, t) -> zero(Vec{2}), [1,2]))
-    ## add!(ch, Dirichlet(:p, getfaceset(grid, "bottom_p"), (x, t) -> 0.0))
-    ## add!(ch, Dirichlet(:p, getfaceset(grid, "top_p"), (x, t) -> p_max*clamp(t/t_rise,0,1)))
-    ## With master (only works if no tri-elements on boundary)
-    add!(ch, dh.fieldhandlers[2], Dirichlet(:u, getfaceset(grid, "bottom"), (x, t) -> zero(Vec{2}), [1,2]))
-    add!(ch, dh.fieldhandlers[4], Dirichlet(:u, getfaceset(grid, "bottom_p"), (x, t) -> zero(Vec{2}), [1,2]))
-    add!(ch, dh.fieldhandlers[4], Dirichlet(:p, getfaceset(grid, "bottom_p"), (x, t) -> 0.0))
-    add!(ch, dh.fieldhandlers[4], Dirichlet(:p, getfaceset(grid, "top_p"), (x, t) -> p_max*clamp(t/t_rise,0,1)))
+    # Fix bottom in y and sides in x
+    add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), (x, t) -> zero(Vec{1}), [2]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, "sides"), (x,t) -> zero(Vec{1}), [1]))
+    # Zero pressure on top surface
+    add!(ch, Dirichlet(:p, getfaceset(grid, "top"), (x,t) -> 0.0))
     close!(ch)
+
+    # Probably doesn't work
+    # Need to add features to Neumann handler to support MixedDofHandler
+    # Also, note that we have different interpolations on the solid and porous parts which must be considered.
+    #nh = NeumannHandler(dh);
+    #add!(nh, Neumann(:u, fv4, getfaceset(grid, "top"), getcellset(grid, "CPS4R"), (x,t,n)->-n*clamp(0,1,t/t_rise)*p_max))
+    #add!(nh, Neumann(:u, fv3, getfaceset(grid, "top"), getcellset(grid, "CPS3"), (x,t,n)->-n*clamp(0,1,t/t_rise)*p_max))
+
 
     ## We then need one material per fieldhandler:
     materials = (Elastic(), Elastic(), PoroElastic(), PoroElastic())
 
-    return FEDefinition(;dh=dh, ch=ch, cv=cv, m=materials, cc=FP.RelativeResidualElementScaling())
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=materials, cc=FP.RelativeResidualElementScaling())
 end
 
 # ## Postprocessing
