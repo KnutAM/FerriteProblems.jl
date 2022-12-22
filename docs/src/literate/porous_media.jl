@@ -99,7 +99,7 @@ struct Elastic{T} <: AbstractMaterial
     K::T
     E4::SymmetricTensor{4,2,T,9}
 end
-function Elastic(;E=20.e3, ν=0.3)
+function Elastic(;E=2.e3, ν=0.3)
     G = E / 2(1 + ν)
     K = E / 3(1 - 2ν)
     I2 = one(SymmetricTensor{2,2})
@@ -182,7 +182,7 @@ end
 # for each element type. These 4 sets will later be used in their own `FieldHandler`
 function get_grid()
     ## Import grid from abaqus mesh
-    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p75.inp"))
+    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p25.inp"))
 
     ## Create cellsets for each fieldhandler
     addcellset!(grid, "solid3", intersect(getcellset(grid, "solid"), getcellset(grid, "CPS3")))
@@ -237,20 +237,16 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     ## Use `Ferrite.jl` PR427 (temporary included in FerriteProblems.jl) 
     ## to make Dirichlet conditions easier and more generalgit
     ch = ConstraintHandler(dh);
-    # Fix bottom in y and sides in x
+    ## Fix bottom in y and sides in x
     add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), (x, t) -> zero(Vec{1}), [2]))
     add!(ch, Dirichlet(:u, getfaceset(grid, "sides"), (x,t) -> zero(Vec{1}), [1]))
-    # Zero pressure on top surface
+    ## Zero pressure on top surface
     add!(ch, Dirichlet(:p, getfaceset(grid, "top"), (x,t) -> 0.0))
     close!(ch)
 
-    # Probably doesn't work
-    # Need to add features to Neumann handler to support MixedDofHandler
-    # Also, note that we have different interpolations on the solid and porous parts which must be considered.
-    #nh = NeumannHandler(dh);
-    #add!(nh, Neumann(:u, fv4, getfaceset(grid, "top"), getcellset(grid, "CPS4R"), (x,t,n)->-n*clamp(0,1,t/t_rise)*p_max))
-    #add!(nh, Neumann(:u, fv3, getfaceset(grid, "top"), getcellset(grid, "CPS3"), (x,t,n)->-n*clamp(0,1,t/t_rise)*p_max))
-
+    ## Add Neumann boundary conditions - normal traction on top
+    nh = NeumannHandler(dh);
+    add!(nh, Neumann(:u, 2, getfaceset(grid, "top"), (x,t,n) -> -n*clamp(t/t_rise,0,1)*p_max))
 
     ## We then need one material per fieldhandler:
     materials = (Elastic(), Elastic(), PoroElastic(), PoroElastic())
@@ -269,7 +265,7 @@ function PostProcess(filestem="porous_media")
 end
 
 function FESolvers.postprocess!(post::PostProcess, p, step, solver)
-    @info "Postprocessing step $step (niter = $(FESolvers.getnumiter(solver.nlsolver)))"
+    @info "Postprocessing step $step"
     vtk_grid("$(post.filestem)-$step", FP.getdh(p)) do vtk
         vtk_point_data(vtk, FP.getdh(p), FP.getunknowns(p))
         vtk_save(vtk)
@@ -281,7 +277,7 @@ FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd)
 
 # ## Solving
 problem = FerriteProblem(create_definition(), PostProcess())
-solver = QuasiStaticSolver(;nlsolver=NewtonSolver(), timestepper=FixedTimeStepper(collect(0:0.025:1.0)))
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
 
