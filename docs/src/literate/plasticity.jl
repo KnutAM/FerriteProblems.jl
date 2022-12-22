@@ -29,20 +29,18 @@ include("J2Plasticity.jl");
 # ## Problem definition
 # We first create the problem's definition
 
-traction_function(time) = time*1.e7 # N/m² 
+traction_function(time) = Vec{3}((0.0, 0.0, time*1.e7)) # N/m² 
 
 function setup_problem_definition()
     ## Define material properties ("J2Plasticity.jl" file)
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
     
-    ## Cell and facevalues (`Ferrite.jl`)
-    interpolation = Lagrange{3, RefTetrahedron, 1}()
-    cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
-    fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
+    ## CellValues
+    cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
 
     ## Grid and degrees of freedom (`Ferrite.jl`)
     grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
-    dh = DofHandler(grid); push!(dh, :u, 3, interpolation); close!(dh)
+    dh = DofHandler(grid); push!(dh, :u, 3); close!(dh)
 
     ## Constraints (Dirichlet boundary conditions, `Ferrite.jl`)
     ch = ConstraintHandler(dh)
@@ -51,7 +49,8 @@ function setup_problem_definition()
 
     ## Neumann boundary conditions (`FerriteNeumann.jl`)
     nh = NeumannHandler(dh)
-    add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
+    quad_order = 3
+    add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), (x,t,n)->traction_function(t)))
 
     return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material)
 end;
@@ -86,7 +85,7 @@ PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     ## p::FerriteProblem
     ## First, we save some values directly in the `post` struct
-    push!(post.tmag, traction_function(FP.gettime(p)))
+    push!(post.tmag, traction_function(FP.gettime(p))[3])
     push!(post.umag, maximum(abs, FP.getunknowns(p)))
 
     ## Second, we save some results to file
