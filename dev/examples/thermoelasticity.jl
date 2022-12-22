@@ -1,4 +1,19 @@
-# # Plasticity
+# # Thermoelasticity
+
+# This example aims to highlight some advanced features using FerriteProblems. 
+# Specifically, 
+# * `MixedDofHandler` with
+#   - Different cell types
+#   - Different fields on different parts of the domain
+# * Multiple materials
+# * Coupled problems 
+# * 
+# 
+# The prototype example is coupled thermoelasticity where we have 
+# three different materials. 
+# * Aluminum
+# * Styrofoam insulation
+# * Steel 
 
 # This example is taken from 
 # [Ferrite.jl's plasticity example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/)
@@ -22,25 +37,26 @@ include("J2Plasticity.jl");
 # * `J2Plasticity<:AbstractMaterial` material type with the constructor `J2Plasticity(E,ν,σy0,H)`
 # * State variable struct `J2PlasticityMaterialState<:AbstractMaterialState`
 # * The MaterialModelsBase function `initial_material_state` and `material_response`
-# For a single material according to the `MaterialModelsBase` interface, 
-# `FerriteAssembly.element_routine!` and `FerriteAssembly.create_cell_state` are already 
-# included in FerriteProblems, see `src/MaterialModelsBase.jl`.
+# For a single material according to the `MaterialModelsBase` interface, the element is already 
+# included in FerriteProblems, see `src/MaterialModelsBase.jl`
 
 # ## Problem definition
 # We first create the problem's definition
 
-traction_function(time) = Vec{3}((0.0, 0.0, time*1.e7)) # N/m² 
+traction_function(time) = time*1.e7 # N/m² 
 
 function setup_problem_definition()
     ## Define material properties ("J2Plasticity.jl" file)
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
     
-    ## CellValues
-    cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
+    ## Cell and facevalues (`Ferrite.jl`)
+    interpolation = Lagrange{3, RefTetrahedron, 1}()
+    cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), interpolation)
+    fv = FaceVectorValues(QuadratureRule{2,RefTetrahedron}(3), interpolation)
 
     ## Grid and degrees of freedom (`Ferrite.jl`)
     grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
-    dh = DofHandler(grid); push!(dh, :u, 3); close!(dh)
+    dh = DofHandler(grid); push!(dh, :u, 3, interpolation); close!(dh)
 
     ## Constraints (Dirichlet boundary conditions, `Ferrite.jl`)
     ch = ConstraintHandler(dh)
@@ -49,10 +65,12 @@ function setup_problem_definition()
 
     ## Neumann boundary conditions (`FerriteNeumann.jl`)
     nh = NeumannHandler(dh)
-    quad_order = 3
-    add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), (x,t,n)->traction_function(t)))
+    add!(nh, Neumann(:u, fv, getfaceset(grid, "right"), (x,t,n)->Vec{3}((0.0, 0.0, traction_function(t)))))
 
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material)
+    ## Initial material states (using FerriteAssembly's `create_states`)
+    states = create_states(dh, x->initial_material_state(material), cv)
+
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material, initialstate=states)
 end;
 
 # For the problem at hand, we need to define the element routine, 
@@ -85,7 +103,7 @@ PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     ## p::FerriteProblem
     ## First, we save some values directly in the `post` struct
-    push!(post.tmag, traction_function(FP.gettime(p))[3])
+    push!(post.tmag, traction_function(FP.gettime(p)))
     push!(post.umag, maximum(abs, FP.getunknowns(p)))
 
     ## Second, we save some results to file
