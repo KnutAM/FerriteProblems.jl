@@ -175,7 +175,7 @@ end
     _create_states(dh::AbstractDofHandler, material, cellvalues, initial_conditions)
 
 Create the state variables by calling `FerriteAssembly.create_states` after calculating 
-the degree of freedom values with [`FerriteProblems.initial_conditions!`](@ref) and the 
+the degree of freedom values with `Ferrite.jl`'s apply_analytical! and the 
 `initial_conditions` input.  
 """
 function _create_states(dh, material, cellvalues, initial_conditions)
