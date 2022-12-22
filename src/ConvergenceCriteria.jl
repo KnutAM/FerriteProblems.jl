@@ -1,4 +1,10 @@
 # Scaling of the tolerance for the finite element problem
+"""
+    ConvergenceCriterion
+
+The abstract type `ConvergenceCriterion` is the supertype for all 
+convergence criteria. 
+"""
 abstract type ConvergenceCriterion end
 
 """
@@ -26,8 +32,9 @@ Create the actual assemscaling for the given `criterion`.
 If `threaded::Val{true}`, then call `make_assemscaling(criterion, def, ::Val{false})` 
 for each thread to support threaded assembly. Note that the function has a definition 
 `make_assemscaling(criterion,def)=make_assemscaling(criterion,def,dothreaded(def))` to simplify calling it.
-Each `criterion` should overload `make_assemscaling(criterion,def,::Val{false})`.
-The default, if not overloaded, returns `nothing`
+If required, a `criterion` should overload `make_assemscaling(criterion,def,::Val{false})`.
+The default, if not overloaded, returns `nothing`. 
+That suffices if nothing needs to be calculated for each cell during assembly. 
 """
 make_assemscaling(criterion, def) = make_assemscaling(criterion, def, dothreaded(def))
 make_assemscaling(::Any, _, ::Val{false}) = nothing
@@ -43,13 +50,37 @@ calculate_convergence_measure(ts::TolScaling, args...) = calculate_convergence_m
 """
 FESolvers.calculate_convergence_measure(ts::TolScaling, args...) = FESolvers.calculate_convergence_measure(ts.criterion, ts, args...)
 
+"""
+    AbsoluteResidual()
 
+The default convergence criterion that calculates the convergence measure as 
+`√(sum([r[i]^2 for i ∈ free dofs])` without any scaling. 
+"""
 struct AbsoluteResidual <: ConvergenceCriterion end
 
 function FESolvers.calculate_convergence_measure(::AbsoluteResidual, ts, r, Δa, iter, p)
     sqrt(sum(i->r[i]^2, Ferrite.free_dofs(getch(p))))
 end
 
+"""
+    RelativeResidualElementScaling(p, minfactors::Union{AbstractFloat,NamedTuple}=eps())
+
+Use `Ferriteassembly.ElementResidualScaling` with the exponent `p` to calculate the 
+scaling for each field individually, based on the L2-norm of each cell's residual. 
+To avoid issues when all cells have zero residual (e.g. in the first time step),
+supply `minfactors` as the minimum scaling factor. 
+The convergence measure is calculated with the following pseudo-code
+```julia
+val = 0.0
+for field in Ferrite.getfieldnames(dh)
+    factor = max(element_residual_scaling[field], minfactors[field])
+    dofs = free_field_dofs[field]   # Get the non-constrained dofs for `field`
+    val += sum(i->(r[i]/factor)^2, dofs)
+end
+return √val
+```
+where the same `minfactor` is used for all fields if only a scalar value is given. 
+"""
 struct RelativeResidualElementScaling{T,F<:Union{AbstractFloat,Dict{Symbol},NamedTuple}} <: ConvergenceCriterion
     p::T
     minfactors::F
@@ -74,7 +105,7 @@ function FESolvers.calculate_convergence_measure(cc::RelativeResidualElementScal
     minfactors = cc.minfactors
     for (key, dofs) in ts.buffer 
         factor = max(factors[key], getminfactor(minfactors, key))
-        val += sum(i->(r[i]/factor)^2, dofs)
+        val += sum(i->(r[i]/factor)^2, dofs)    # Inside loop for better accuracy
     end
     return sqrt(val)
 end

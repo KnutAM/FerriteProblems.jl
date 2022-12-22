@@ -36,8 +36,8 @@ cellbuffertype(::Any) = CellBuffer
 
 # makecellbuffer could also be used to use a custom `AbstractCellBuffer`
 makecellbuffer(def) = makecellbuffer(def, dothreaded(def), cellbuffertype(def))
-makecellbuffer(def, threaded::Val{false}, CB::Type{<:CellBuffer}) = CB(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
-makecellbuffer(def, threaded::Val{false}, CB::Type{<:AutoDiffCellBuffer}) = CB(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def, threaded::Val{false}, CB::Type{<:CellBuffer}) = setup_cellbuffer(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
+makecellbuffer(def, threaded::Val{false}, CB::Type{<:AutoDiffCellBuffer}) = setup_ad_cellbuffer(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
 makecellbuffer(def, threaded::Val{true}, CB) = create_threaded_CellBuffers(makecellbuffer(def, Val{false}(), CB))
 
 function FEBuffer(def::FEDefinition)
@@ -155,6 +155,8 @@ function copy_states!(to::T, from::T) where T<:Dict{Int,<:Vector}
         copy_states!(to[key], fromval)
     end
 end
+copy_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}} = nothing 
+
 @inline copy_states!(to::T, from::T) where T<:Vector{ET} where ET = copy_states!(Val{isbitstype(ET)}(), to, from)
 @inline copy_states!(::Val{true}, to::Vector, from::Vector) = copy!(to,from)
 @inline copy_states!(::Val{false}, to::Vector, from::Vector) = copy!(to,deepcopy(from))

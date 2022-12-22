@@ -16,6 +16,28 @@ FEDefinition
 FerriteIO
 ```
 
+## Setting up simulation
+```@docs
+FerriteProblems.cellbuffertype
+FerriteProblems.allocate_material_cache
+```
+
+## Convergence criteria
+In normal usage, the following convergence criteria can be used
+```@docs
+FerriteProblems.ConvergenceCriterion
+FerriteProblems.AbsoluteResidual
+FerriteProblems.RelativeResidualElementScaling
+```
+
+To create custom convergence criteria, the following functions 
+may require overloading. 
+```@docs
+FerriteProblems.TolScaling
+FerriteProblems.make_assemscaling
+FESolvers.calculate_convergence_measure
+```
+
 ## Access functions
 ```@docs
 FerriteProblems.getdh
@@ -33,11 +55,6 @@ FerriteProblems.getstate
 FerriteProblems.getoldstate
 FerriteProblems.gettime
 FerriteProblems.getoldtime
-```
-
-## Special cases
-```@docs
-FerriteProblems.allocate_material_cache
 ```
 
 ## Saving and loading data
