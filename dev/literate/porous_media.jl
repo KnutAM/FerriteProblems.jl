@@ -279,11 +279,11 @@ end
 FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd)
 
 # ## Solving
-using Logging #src
+using Logging #hide
 # Without the real PR427 there will be a lot of warnings... #src
-Logging.disable_logging(Logging.Warn)      #src
+Logging.disable_logging(Logging.Warn)      #hide
 problem = FerriteProblem(create_definition(), PostProcess())
-Logging.disable_logging(Logging.LogLevel(-1)) #src
+Logging.disable_logging(Logging.LogLevel(-1)) #hide
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
