@@ -1,6 +1,4 @@
 # # Porous media 
-
-# **Note:** *Theory preliminary and not checked for correctness*
 # 
 # Porous media is a two-phase material, consisting of solid parts and a liquid occupying
 # the pores inbetween. 
@@ -279,11 +277,12 @@ end
 FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd)
 
 # ## Solving
-using Logging #hide
-# Without the real PR427 there will be a lot of warnings... #src
-Logging.disable_logging(Logging.Warn)      #hide
+# Without the real PR427 there will be a lot of warnings. when creating the definition.
+# As a temporary solution, we just disable warnings during definition creation
+using Logging
+Logging.disable_logging(Logging.Warn)
 problem = FerriteProblem(create_definition(), PostProcess())
-Logging.disable_logging(Logging.LogLevel(-1)) #hide
+Logging.disable_logging(Logging.LogLevel(-1))
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 

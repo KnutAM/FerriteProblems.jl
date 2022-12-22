@@ -172,10 +172,10 @@ end
 
 FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd)
 
-using Logging #hide
-Logging.disable_logging(Logging.Warn)      #hide
+using Logging
+Logging.disable_logging(Logging.Warn)
 problem = FerriteProblem(create_definition(), PostProcess())
-Logging.disable_logging(Logging.LogLevel(-1)) #hide
+Logging.disable_logging(Logging.LogLevel(-1))
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
