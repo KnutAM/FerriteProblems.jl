@@ -18,7 +18,7 @@ package with
 as well as the supporting packages 
 [`FerriteAssembly.jl`](https://github.com/KnutAM/FerriteAssembly.jl) and 
 [`FerriteNeumann.jl`](https://github.com/KnutAM/FerriteNeumann.jl). 
-There is also extensive support for organizing your simulations 
+There is also preliminary support for organizing your simulations 
 by saving both setup and results as `.jld2` using [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl)
 
 All unregistered dependencies, including `FerriteProblems.jl` itself, 
