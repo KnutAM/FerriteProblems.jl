@@ -24,6 +24,5 @@ FerriteProblems.checkkey
 FerriteProblems.savedata!
 FerriteProblems.getdata
 FerriteProblems.get_dof2node
-FerriteProblems.initial_conditions!
 FerriteProblems.dothreaded
 ```

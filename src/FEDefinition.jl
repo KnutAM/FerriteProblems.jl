@@ -21,10 +21,11 @@ See more information below for items marked with *
 * `m`: The material definition, user defined type - passed into element. (*)
 * `bl`: Source term/body load, user defined type - available from the element routine (*)
 * `ic`: Initial conditions. NamedTuple with a function `f(x)` for each field that has a nonzero 
-  initial condition. Used by the [`FerriteProblems.initial_conditions!`](@ref) function.
+  initial condition. Used by the `Ferrite.jl`'s `apply_analytical!` function 
+  (included here if Ferrite version too old).
 * `initialstate`: The initial state variables for each cell in the grid. By default, this is 
   automatically created by `FerriteAssembly.create_states` with customization provided by
-  overloading `FerriteAssembly.create_cell_state`
+  overloading `FerriteAssembly.create_cell_state` and is not necessary to supply here. 
 * `cc::ConvergenceCriterion`: Determines how to calculate the convergence measure including scaling
 * `colors`: Supply to use threaded assembly, can be created by `Ferrite.create_coloring`
 
