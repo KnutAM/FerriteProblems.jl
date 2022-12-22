@@ -150,7 +150,7 @@ function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic,
 
     ## Assemble stiffness and force vectors
     for q_point in 1:getnquadpoints(cv_u)   
-        # Calculate variables in the current quadrature point 
+        ## Calculate variables in the current quadrature point 
         dΩ = getdetJdV(cv_u, q_point)
         ϵ = function_symmetric_gradient(cv_u, q_point, ue)
         ϵ_old = function_symmetric_gradient(cv_u, q_point, ue_old)
@@ -161,7 +161,7 @@ function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic,
         div_udot = (tr(ϵ)-tr(ϵ_old))/Δt
         σeff = material.elastic.E4 ⊡ ϵ
 
-        # Assemble residual contributions
+        ## Assemble residual contributions
         for iᵤ in 1:num_u
             ∇δNu = shape_symmetric_gradient(cv_u, q_point, iᵤ)
             div_δNu = shape_divergence(cv_u, q_point, iᵤ)
@@ -177,12 +177,15 @@ end
 
 # ## Problem definition
 # ### Mesh import
-# In this example, we import the mesh from the Abaqus input file, [`porous_media_0p25.inp`](porous_media_0p25.inp) using `FerriteMeshParser`'s 
-# `get_ferrite_grid` function. We then create one cellset for each phase (solid and porous)
+# In this example, we import the mesh from the Abaqus input file, 
+# [`porous_media_0p25.inp`](porous_media_0p75.inp) using `FerriteMeshParser`'s 
+# `get_ferrite_grid` function. 
+# (A finer mesh, [`porous_media_0p25.inp`](porous_media_0p25.inp), is also available)
+# We then create one cellset for each phase (solid and porous)
 # for each element type. These 4 sets will later be used in their own `FieldHandler`
 function get_grid()
     ## Import grid from abaqus mesh
-    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p25.inp"))
+    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p75.inp"))
 
     ## Create cellsets for each fieldhandler
     addcellset!(grid, "solid3", intersect(getcellset(grid, "solid"), getcellset(grid, "CPS3")))
