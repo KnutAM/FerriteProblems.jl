@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Linear Time Dependent Problem · FerriteProblems.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://KnutAM.github.io/FerriteProblems.jl/examples/transient_heat/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteProblems.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../plasticity/">Plasticity</a></li><li class="is-active"><a class="tocitem" href>Linear Time Dependent Problem</a><ul class="internal"><li><a class="tocitem" href="#Commented-Program"><span>Commented Program</span></a></li><li><a class="tocitem" href="#Physics"><span>Physics</span></a></li><li><a class="tocitem" href="#Problem-setup"><span>Problem setup</span></a></li><li><a class="tocitem" href="#Postprocessing"><span>Postprocessing</span></a></li><li><a class="tocitem" href="#transient_heat_equation-plain-program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../incompressible_elasticity/">Incompressible Elasticity</a></li><li><a class="tocitem" href="../porous_media/">Porous media</a></li></ul></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Linear Time Dependent Problem</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Linear Time Dependent Problem</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/KnutAM/FerriteProblems.jl/blob/main/docs/src/literate/transient_heat.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Linear-Time-Dependent-Problem"><a class="docs-heading-anchor" href="#Linear-Time-Dependent-Problem">Linear Time Dependent Problem</a><a id="Linear-Time-Dependent-Problem-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Time-Dependent-Problem" title="Permalink"></a></h1><p>This example is the same example as <a href="https://knutam.github.io/FESolvers.jl/dev/examples/transient_heat/"><code>FESolvers.jl</code>&#39;s transient heat flow</a> which was taken from <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/examples/transient_heat_equation/"><code>Ferrite.jl</code>&#39;s transient heat flow</a>. Please see the theoretical derivations in those examples, with the specific formulation used here in the former.</p><h2 id="Commented-Program"><a class="docs-heading-anchor" href="#Commented-Program">Commented Program</a><a id="Commented-Program-1"></a><a class="docs-heading-anchor-permalink" href="#Commented-Program" title="Permalink"></a></h2><p>Now we solve the problem by using FerriteProblems. The full program, without comments, can be found in the next <a href="#transient_heat_equation-plain-program">section</a>.</p><p>First we load required packages</p><pre><code class="language-julia hljs">using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
+import FerriteProblems as FP
+import FerriteAssembly as FA</code></pre><h2 id="Physics"><a class="docs-heading-anchor" href="#Physics">Physics</a><a id="Physics-1"></a><a class="docs-heading-anchor-permalink" href="#Physics" title="Permalink"></a></h2><p>First, we need to define the material behavior.</p><pre><code class="language-julia hljs">Base.@kwdef struct FicksLaw{T}
+    k::T=1.0e-3    # Thermal conductivity
+    f::T=5.0e-1    # Constant heat source
+end</code></pre><p>where we could have defined the heat source using the bodyload type available via the cellbuffer, but it is not necessary for a constant heat source.</p><p>We then define element routine following <code>FerriteAssembly</code></p><pre><code class="language-julia hljs">function FerriteAssembly.element_routine!(
+    Ke, re, state, ue, m::FicksLaw, cellvalues, dh_fh, Δt, buffer
+    )
+    ue_old = FA.get_aeold(buffer)
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        dΩ = getdetJdV(cellvalues, q_point)
+        u = function_value(cellvalues, q_point, ue)
+        uold = function_value(cellvalues, q_point, ue_old)
+        ∇u = function_gradient(cellvalues, q_point, ue)
+        for i in 1:n_basefuncs
+            δN = shape_value(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
+            re[i] += (δN * (u - uold - Δt * m.f) + Δt * m.k * ∇δN ⋅ ∇u) * dΩ
+            for j in 1:n_basefuncs
+                N = shape_value(cellvalues, q_point, j)
+                ∇N = shape_gradient(cellvalues, q_point, j)
+                Ke[i, j] += (δN*N + Δt * m.k * (∇δN ⋅ ∇N)) * dΩ
+            end
+        end
+    end
+end;</code></pre><h2 id="Problem-setup"><a class="docs-heading-anchor" href="#Problem-setup">Problem setup</a><a id="Problem-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-setup" title="Permalink"></a></h2><p>We start by a function that will create the problem definition</p><pre><code class="language-julia hljs">function create_definition()
+    # **Grid**
+    grid = generate_grid(Quadrilateral, (100, 100));
+
+    # **Cell values**
+    cellvalues = CellScalarValues(
+        QuadratureRule{2, RefCube}(2),
+        Lagrange{2, RefCube, 1}());
+
+    # **Degrees of freedom**
+    # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
+    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+
+    # **Boundary conditions**
+    # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
+    max_temp = 100; t_rise = 100
+    ch = ConstraintHandler(dh);
+    ∂Ω₁ = union(getfaceset.((grid,), [&quot;left&quot;, &quot;right&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₁, (x, t) -&gt; 0));
+    ∂Ω₂ = union(getfaceset.((grid,), [&quot;top&quot;, &quot;bottom&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₂, (x, t) -&gt; max_temp * clamp(t / t_rise, 0, 1)))
+    close!(ch)
+
+    # Create and return the `FEDefinition`
+    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FicksLaw())
+end;</code></pre><h2 id="Postprocessing"><a class="docs-heading-anchor" href="#Postprocessing">Postprocessing</a><a id="Postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing" title="Permalink"></a></h2><p>After defining all the physics and problem setup, we must decide what data to save. In this example, we use the vtk-file exports as in the original example. To this end, we define the custom postprocessing struct</p><pre><code class="language-julia hljs">struct PostProcessing{PVD}
+    pvd::PVD
+end
+PostProcessing() = PostProcessing(paraview_collection(&quot;transient-heat.pvd&quot;));</code></pre><p>And the postprocessing function that is called after each time step</p><pre><code class="language-julia hljs">function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+    if step &lt; 5 || mod(step, 20) == 0
+        @info &quot;postprocessing step $step&quot;
+        dh = FP.getdh(p)
+        vtk_grid(&quot;transient-heat-$step&quot;, dh) do vtk
+            vtk_point_data(vtk, dh, FP.getunknowns(p))
+            vtk_save(vtk)
+            post.pvd[step] = vtk
+        end
+    end
+end;</code></pre><p>At the end of the simulation, we want to finish all IO operations. We can then define the function <code>close_postprocessing</code> which will be called even in the case that an error is thrown during the simulation</p><pre><code class="language-julia hljs">function FP.close_postprocessing(post::PostProcessing, p)
+    vtk_save(post.pvd)
+end;</code></pre><p>And now we create the problem type, and define the QuasiStaticSolver with the LinearProblemSolver as well as fixed time steps</p><pre><code class="language-julia hljs">def = create_definition()
+post = PostProcessing()
+problem = FerriteProblem(def, post)
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(collect(0.0:1.0:200)));</code></pre><p>Finally, we can solve the problem</p><pre><code class="language-julia hljs">solve_problem!(problem, solver);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: postprocessing step 2
+[ Info: postprocessing step 3
+[ Info: postprocessing step 4
+[ Info: postprocessing step 20
+[ Info: postprocessing step 40
+[ Info: postprocessing step 60
+[ Info: postprocessing step 80
+[ Info: postprocessing step 100
+[ Info: postprocessing step 120
+[ Info: postprocessing step 140
+[ Info: postprocessing step 160
+[ Info: postprocessing step 180
+[ Info: postprocessing step 200</code></pre><h2 id="transient_heat_equation-plain-program"><a class="docs-heading-anchor" href="#transient_heat_equation-plain-program">Plain program</a><a id="transient_heat_equation-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#transient_heat_equation-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../transient_heat.jl"><code>transient_heat.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
+import FerriteProblems as FP
+import FerriteAssembly as FA
+
+Base.@kwdef struct FicksLaw{T}
+    k::T=1.0e-3    # Thermal conductivity
+    f::T=5.0e-1    # Constant heat source
+end
+
+function FerriteAssembly.element_routine!(
+    Ke, re, state, ue, m::FicksLaw, cellvalues, dh_fh, Δt, buffer
+    )
+    ue_old = FA.get_aeold(buffer)
+    n_basefuncs = getnbasefunctions(cellvalues)
+    for q_point in 1:getnquadpoints(cellvalues)
+        dΩ = getdetJdV(cellvalues, q_point)
+        u = function_value(cellvalues, q_point, ue)
+        uold = function_value(cellvalues, q_point, ue_old)
+        ∇u = function_gradient(cellvalues, q_point, ue)
+        for i in 1:n_basefuncs
+            δN = shape_value(cellvalues, q_point, i)
+            ∇δN = shape_gradient(cellvalues, q_point, i)
+            re[i] += (δN * (u - uold - Δt * m.f) + Δt * m.k * ∇δN ⋅ ∇u) * dΩ
+            for j in 1:n_basefuncs
+                N = shape_value(cellvalues, q_point, j)
+                ∇N = shape_gradient(cellvalues, q_point, j)
+                Ke[i, j] += (δN*N + Δt * m.k * (∇δN ⋅ ∇N)) * dΩ
+            end
+        end
+    end
+end;
+
+function create_definition()
+    # **Grid**
+    grid = generate_grid(Quadrilateral, (100, 100));
+
+    # **Cell values**
+    cellvalues = CellScalarValues(
+        QuadratureRule{2, RefCube}(2),
+        Lagrange{2, RefCube, 1}());
+
+    # **Degrees of freedom**
+    # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
+    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+
+    # **Boundary conditions**
+    # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
+    max_temp = 100; t_rise = 100
+    ch = ConstraintHandler(dh);
+    ∂Ω₁ = union(getfaceset.((grid,), [&quot;left&quot;, &quot;right&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₁, (x, t) -&gt; 0));
+    ∂Ω₂ = union(getfaceset.((grid,), [&quot;top&quot;, &quot;bottom&quot;])...)
+    add!(ch, Dirichlet(:u, ∂Ω₂, (x, t) -&gt; max_temp * clamp(t / t_rise, 0, 1)))
+    close!(ch)
+
+    # Create and return the `FEDefinition`
+    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FicksLaw())
+end;
+
+struct PostProcessing{PVD}
+    pvd::PVD
+end
+PostProcessing() = PostProcessing(paraview_collection(&quot;transient-heat.pvd&quot;));
+
+function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+    if step &lt; 5 || mod(step, 20) == 0
+        @info &quot;postprocessing step $step&quot;
+        dh = FP.getdh(p)
+        vtk_grid(&quot;transient-heat-$step&quot;, dh) do vtk
+            vtk_point_data(vtk, dh, FP.getunknowns(p))
+            vtk_save(vtk)
+            post.pvd[step] = vtk
+        end
+    end
+end;
+
+function FP.close_postprocessing(post::PostProcessing, p)
+    vtk_save(post.pvd)
+end;
+
+def = create_definition()
+post = PostProcessing()
+problem = FerriteProblem(def, post)
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(collect(0.0:1.0:200)));
+
+solve_problem!(problem, solver);
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Incompressible Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Friday 23 December 2022 08:37">Friday 23 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
