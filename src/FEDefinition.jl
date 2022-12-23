@@ -181,7 +181,7 @@ the degree of freedom values with `Ferrite.jl`'s apply_analytical! and the
 function _create_states(dh, material, cellvalues, initial_conditions)
     a = zeros(ndofs(dh))
     if length(initial_conditions) > 0
-        foreach(ic->initial_conditions!(a, dh, ic[1], ic[2]), pairs(initial_conditions))
+        foreach(ic->apply_analytical!(a, dh, ic[1], ic[2]), pairs(initial_conditions))
     end
     create_states(dh, material, cellvalues, a)
 end
