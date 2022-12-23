@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Porous media · FerriteProblems.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://KnutAM.github.io/FerriteProblems.jl/examples/porous_media/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteProblems.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../plasticity/">Plasticity</a></li><li><a class="tocitem" href="../transient_heat/">Linear Time Dependent Problem</a></li><li><a class="tocitem" href="../incompressible_elasticity/">Incompressible Elasticity</a></li><li class="is-active"><a class="tocitem" href>Porous media</a><ul class="internal"><li><a class="tocitem" href="#Theory-of-porous-media"><span>Theory of porous media</span></a></li><li><a class="tocitem" href="#Implementation"><span>Implementation</span></a></li><li><a class="tocitem" href="#Physics"><span>Physics</span></a></li><li><a class="tocitem" href="#Problem-definition"><span>Problem definition</span></a></li><li><a class="tocitem" href="#Postprocessing"><span>Postprocessing</span></a></li><li><a class="tocitem" href="#Solving"><span>Solving</span></a></li><li><a class="tocitem" href="#porous-media-plain-program"><span>Plain program</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Porous media</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Porous media</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/KnutAM/FerriteProblems.jl/blob/main/docs/src/literate/porous_media.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Porous-media"><a class="docs-heading-anchor" href="#Porous-media">Porous media</a><a id="Porous-media-1"></a><a class="docs-heading-anchor-permalink" href="#Porous-media" title="Permalink"></a></h1><p>Porous media is a two-phase material, consisting of solid parts and a liquid occupying the pores inbetween. Using the porous media theory, we can model such a material without explicitly resolving the microstructure, but by considering the interactions between the solid and liquid. In this example, we will additionally consider larger linear elastic solid aggregates that are impermeable. Hence, there is no liquids in these particles and the only unknown variable is the displacement field <code>:u</code>. In the porous media, denoted the matrix, we have both the displacement field, <code>:u</code>, as well as the liquid pressure, <code>:p</code>, as unknown. The computational domain is shown below</p><h2 id="Theory-of-porous-media"><a class="docs-heading-anchor" href="#Theory-of-porous-media">Theory of porous media</a><a id="Theory-of-porous-media-1"></a><a class="docs-heading-anchor-permalink" href="#Theory-of-porous-media" title="Permalink"></a></h2><p>The strong forms are given as</p><p class="math-container">\[\begin{aligned}
 \boldsymbol{\sigma}(\boldsymbol{\epsilon}, p) \cdot \boldsymbol{\nabla} &amp;= \boldsymbol{0} \\
-\Phi(\boldsymbol{\epsilon}, p) + \boldsymbol{w}(p) \cdot \boldsymbol{\nabla} &amp;= 0
+\dot{\Phi}(\boldsymbol{\epsilon}, p) + \boldsymbol{w}(p) \cdot \boldsymbol{\nabla} &amp;= 0
 \end{aligned}\]</p><p>where <span>$\boldsymbol{\epsilon} = \left[\boldsymbol{u}\otimes\boldsymbol{\nabla}\right]^\mathrm{sym}$</span> The constitutive relationships are</p><p class="math-container">\[\begin{aligned}
 \boldsymbol{\sigma} &amp;= \boldsymbol{\mathsf{E}}:\boldsymbol{\epsilon} - \alpha p \boldsymbol{I} \\
 \boldsymbol{w} &amp;= - k \boldsymbol{\nabla} p \\
 \Phi &amp;= \phi + \alpha \mathrm{tr}(\boldsymbol{\epsilon}) + \beta p
-\end{aligned}\]</p><p>with <span>$\boldsymbol{\mathsf{E}}=2G \boldsymbol{\mathsf{I}}^\mathrm{dev} + 3K \boldsymbol{I}\otimes\boldsymbol{I}$</span>. The material parameters are then the shear modulus, <span>$G$</span>, bulk modulus, <span>$K$</span>, permeability, <span>$k$</span>, and porosity, <span>$\phi$</span>, Biot&#39;s coefficient, <span>$\alpha$</span>, liquid compressibility, <span>$\beta$</span>.</p><p>The variational (weak) form can then be derived for the variations <span>$\boldsymbol{\delta u}$</span> and <span>$\delta p$</span> as</p><p class="math-container">\[\begin{aligned}
+\end{aligned}\]</p><p>with <span>$\boldsymbol{\mathsf{E}}=2G \boldsymbol{\mathsf{I}}^\mathrm{dev} + 3K \boldsymbol{I}\otimes\boldsymbol{I}$</span>. The material parameters are then the shear modulus, <span>$G$</span>, bulk modulus, <span>$K$</span>, permeability, <span>$k$</span>, Biot&#39;s coefficient, <span>$\alpha$</span>, and liquid compressibility, <span>$\beta$</span>. The porosity, <span>$\phi$</span>, doesn&#39;t enter into the equations (A different porosity leads to different skeleton stiffness and permeability).</p><p>The variational (weak) form can then be derived for the variations <span>$\boldsymbol{\delta u}$</span> and <span>$\delta p$</span> as</p><p class="math-container">\[\begin{aligned}
 \int_\Omega \left[\left[\boldsymbol{\delta u}\otimes\boldsymbol{\nabla}\right]^\mathrm{sym}:
 \boldsymbol{\mathsf{E}}:\boldsymbol{\epsilon} - \boldsymbol{\delta u} \cdot \boldsymbol{\nabla} \alpha p\right] \mathrm{d}\Omega
 &amp;= \int_\Gamma \boldsymbol{\delta u} \cdot \boldsymbol{t} \mathrm{d} \Gamma \\
@@ -45,11 +45,10 @@ end;</code></pre><h3 id="Poroelastic-material"><a class="docs-heading-anchor" hr
     elastic::E
     k::T    # [mm^4/Ns] Permeability
     α::T    # [-] Biot&#39;s coefficient
-    φ::T    # [-] Porosity (\varphi)
     β::T    # [1/MPa] Liquid bulk modulus
 end
-function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, φ=0.8, β=1/2e3)
-    return PoroElastic(elastic, k, α, φ, β)
+function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
+    return PoroElastic(elastic, k, α, β)
 end;</code></pre><p>And then we also have to define the specific element routine which we do by defining the residual and using autodiff to calculate the tangent</p><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, dh_fh, Δt, buffer)
     # Setup cellvalues and give easier names
     cv_u = cv[:u]
@@ -93,7 +92,7 @@ end;</code></pre><p>And then we also have to define the specific element routine
             rp[iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
         end
     end
-end</code></pre><h2 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h2><h3 id="Mesh-import"><a class="docs-heading-anchor" href="#Mesh-import">Mesh import</a><a id="Mesh-import-1"></a><a class="docs-heading-anchor-permalink" href="#Mesh-import" title="Permalink"></a></h3><p>In this example, we import the mesh from the Abaqus input file, <a href="../porous_media_0p75.inp"><code>porous_media_0p25.inp</code></a> using <code>FerriteMeshParser</code>&#39;s <code>get_ferrite_grid</code> function. (A finer mesh, <a href="../porous_media_0p25.inp"><code>porous_media_0p25.inp</code></a>, is also available) We then create one cellset for each phase (solid and porous) for each element type. These 4 sets will later be used in their own <code>FieldHandler</code></p><pre><code class="language-julia hljs">function get_grid()
+end</code></pre><h2 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h2><h3 id="Mesh-import"><a class="docs-heading-anchor" href="#Mesh-import">Mesh import</a><a id="Mesh-import-1"></a><a class="docs-heading-anchor-permalink" href="#Mesh-import" title="Permalink"></a></h3><p>In this example, we import the mesh from the Abaqus input file, <a href="../porous_media_0p75.inp"><code>porous_media_0p75.inp</code></a> using <code>FerriteMeshParser</code>&#39;s <code>get_ferrite_grid</code> function. (A finer mesh, <a href="../porous_media_0p25.inp"><code>porous_media_0p25.inp</code></a>, is also available) We then create one cellset for each phase (solid and porous) for each element type. These 4 sets will later be used in their own <code>FieldHandler</code></p><pre><code class="language-julia hljs">function get_grid()
     # Import grid from abaqus mesh
     grid = get_ferrite_grid(joinpath(@__DIR__, &quot;porous_media_0p75.inp&quot;))
 
@@ -137,14 +136,8 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
            (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin)) )
 
     # Add boundary conditions
-    # * x-displacements zero on sides
-    # * y-displacements zero on bottom
-    # * Normal traction (Neumann) on top
-    # * Zero pressure on top
-    # * Remaining pressure boundaries sealed
-    #
-    # Use `Ferrite.jl` PR427 (temporary included in FerriteProblems.jl)
-    # to make Dirichlet conditions easier and more generalgit
+    # Use `Ferrite.jl` PR427 (temporarily included in FerriteProblems.jl)
+    # to make Dirichlet conditions easier and more general
     ch = ConstraintHandler(dh);
     # Fix bottom in y and sides in x
     add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), (x, t) -&gt; zero(Vec{1}), [2]))
@@ -171,7 +164,6 @@ function PostProcess(filestem=&quot;porous_media&quot;)
 end
 
 function FESolvers.postprocess!(post::PostProcess, p, step, solver)
-    @info &quot;Postprocessing step $step&quot;
     vtk_grid(&quot;$(post.filestem)-$step&quot;, FP.getdh(p)) do vtk
         vtk_point_data(vtk, FP.getdh(p), FP.getunknowns(p))
         vtk_save(vtk)
@@ -184,46 +176,7 @@ Logging.disable_logging(Logging.Warn)
 problem = FerriteProblem(create_definition(), PostProcess())
 Logging.disable_logging(Logging.LogLevel(-1))
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x-&gt;x^2, range(0, 1, 41))))
-solve_problem!(problem, solver)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Postprocessing step 2
-[ Info: Postprocessing step 3
-[ Info: Postprocessing step 4
-[ Info: Postprocessing step 5
-[ Info: Postprocessing step 6
-[ Info: Postprocessing step 7
-[ Info: Postprocessing step 8
-[ Info: Postprocessing step 9
-[ Info: Postprocessing step 10
-[ Info: Postprocessing step 11
-[ Info: Postprocessing step 12
-[ Info: Postprocessing step 13
-[ Info: Postprocessing step 14
-[ Info: Postprocessing step 15
-[ Info: Postprocessing step 16
-[ Info: Postprocessing step 17
-[ Info: Postprocessing step 18
-[ Info: Postprocessing step 19
-[ Info: Postprocessing step 20
-[ Info: Postprocessing step 21
-[ Info: Postprocessing step 22
-[ Info: Postprocessing step 23
-[ Info: Postprocessing step 24
-[ Info: Postprocessing step 25
-[ Info: Postprocessing step 26
-[ Info: Postprocessing step 27
-[ Info: Postprocessing step 28
-[ Info: Postprocessing step 29
-[ Info: Postprocessing step 30
-[ Info: Postprocessing step 31
-[ Info: Postprocessing step 32
-[ Info: Postprocessing step 33
-[ Info: Postprocessing step 34
-[ Info: Postprocessing step 35
-[ Info: Postprocessing step 36
-[ Info: Postprocessing step 37
-[ Info: Postprocessing step 38
-[ Info: Postprocessing step 39
-[ Info: Postprocessing step 40
-[ Info: Postprocessing step 41</code></pre><h2 id="porous-media-plain-program"><a class="docs-heading-anchor" href="#porous-media-plain-program">Plain program</a><a id="porous-media-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#porous-media-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../porous_media.jl"><code>porous_media.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteMeshParser, Tensors
+solve_problem!(problem, solver)</code></pre><h2 id="porous-media-plain-program"><a class="docs-heading-anchor" href="#porous-media-plain-program">Plain program</a><a id="porous-media-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#porous-media-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../porous_media.jl"><code>porous_media.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteMeshParser, Tensors
 using FerriteAssembly, FerriteProblems, FerriteNeumann, FESolvers
 using MaterialModelsBase
 import FerriteProblems as FP
@@ -253,11 +206,10 @@ struct PoroElastic{E&lt;:Elastic,T}
     elastic::E
     k::T    # [mm^4/Ns] Permeability
     α::T    # [-] Biot&#39;s coefficient
-    φ::T    # [-] Porosity (\varphi)
     β::T    # [1/MPa] Liquid bulk modulus
 end
-function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, φ=0.8, β=1/2e3)
-    return PoroElastic(elastic, k, α, φ, β)
+function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
+    return PoroElastic(elastic, k, α, β)
 end;
 
 function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, dh_fh, Δt, buffer)
@@ -351,14 +303,8 @@ function create_definition(;t_rise=0.1, p_max=100.0)
            (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin)) )
 
     # Add boundary conditions
-    # * x-displacements zero on sides
-    # * y-displacements zero on bottom
-    # * Normal traction (Neumann) on top
-    # * Zero pressure on top
-    # * Remaining pressure boundaries sealed
-    #
-    # Use `Ferrite.jl` PR427 (temporary included in FerriteProblems.jl)
-    # to make Dirichlet conditions easier and more generalgit
+    # Use `Ferrite.jl` PR427 (temporarily included in FerriteProblems.jl)
+    # to make Dirichlet conditions easier and more general
     ch = ConstraintHandler(dh);
     # Fix bottom in y and sides in x
     add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), (x, t) -&gt; zero(Vec{1}), [2]))
@@ -387,7 +333,6 @@ function PostProcess(filestem=&quot;porous_media&quot;)
 end
 
 function FESolvers.postprocess!(post::PostProcess, p, step, solver)
-    @info &quot;Postprocessing step $step&quot;
     vtk_grid(&quot;$(post.filestem)-$step&quot;, FP.getdh(p)) do vtk
         vtk_point_data(vtk, FP.getdh(p), FP.getunknowns(p))
         vtk_save(vtk)
@@ -404,4 +349,4 @@ Logging.disable_logging(Logging.LogLevel(-1))
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x-&gt;x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Friday 23 December 2022 10:08">Friday 23 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Friday 23 December 2022 10:39">Friday 23 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

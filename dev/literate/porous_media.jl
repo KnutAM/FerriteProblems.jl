@@ -17,7 +17,7 @@
 # ```math
 # \begin{aligned}
 # \boldsymbol{\sigma}(\boldsymbol{\epsilon}, p) \cdot \boldsymbol{\nabla} &= \boldsymbol{0} \\
-# \Phi(\boldsymbol{\epsilon}, p) + \boldsymbol{w}(p) \cdot \boldsymbol{\nabla} &= 0
+# \dot{\Phi}(\boldsymbol{\epsilon}, p) + \boldsymbol{w}(p) \cdot \boldsymbol{\nabla} &= 0
 # \end{aligned}
 # ```
 # where 
@@ -35,10 +35,11 @@
 # The material parameters are then the 
 # shear modulus, ``G``, 
 # bulk modulus, ``K``, 
-# permeability, ``k``, and 
-# porosity, ``\phi``,
-# Biot's coefficient, ``\alpha``,
-# liquid compressibility, ``\beta``. 
+# permeability, ``k``,  
+# Biot's coefficient, ``\alpha``, and
+# liquid compressibility, ``\beta``.
+# The porosity, ``\phi``, doesn't enter into the equations 
+# (A different porosity leads to different skeleton stiffness and permeability).
 #
 # 
 # The variational (weak) form can then be derived for the variations ``\boldsymbol{\delta u}``
@@ -119,11 +120,10 @@ struct PoroElastic{E<:Elastic,T}
     elastic::E
     k::T    # [mm^4/Ns] Permeability
     α::T    # [-] Biot's coefficient
-    φ::T    # [-] Porosity (\varphi)
     β::T    # [1/MPa] Liquid bulk modulus
 end 
-function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, φ=0.8, β=1/2e3)
-    return PoroElastic(elastic, k, α, φ, β)
+function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
+    return PoroElastic(elastic, k, α, β)
 end;
 
 # And then we also have to define the specific element routine 
@@ -176,7 +176,7 @@ end
 # ## Problem definition
 # ### Mesh import
 # In this example, we import the mesh from the Abaqus input file, 
-# [`porous_media_0p25.inp`](porous_media_0p75.inp) using `FerriteMeshParser`'s 
+# [`porous_media_0p75.inp`](porous_media_0p75.inp) using `FerriteMeshParser`'s 
 # `get_ferrite_grid` function. 
 # (A finer mesh, [`porous_media_0p25.inp`](porous_media_0p25.inp), is also available)
 # We then create one cellset for each phase (solid and porous)
@@ -229,14 +229,8 @@ function create_definition(;t_rise=0.1, p_max=100.0)
            (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin)) )
 
     ## Add boundary conditions
-    ## * x-displacements zero on sides
-    ## * y-displacements zero on bottom
-    ## * Normal traction (Neumann) on top 
-    ## * Zero pressure on top 
-    ## * Remaining pressure boundaries sealed
-    ## 
-    ## Use `Ferrite.jl` PR427 (temporary included in FerriteProblems.jl) 
-    ## to make Dirichlet conditions easier and more generalgit
+    ## Use `Ferrite.jl` PR427 (temporarily included in FerriteProblems.jl) 
+    ## to make Dirichlet conditions easier and more general
     ch = ConstraintHandler(dh);
     ## Fix bottom in y and sides in x
     add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), (x, t) -> zero(Vec{1}), [2]))
@@ -266,7 +260,6 @@ function PostProcess(filestem="porous_media")
 end
 
 function FESolvers.postprocess!(post::PostProcess, p, step, solver)
-    @info "Postprocessing step $step"
     vtk_grid("$(post.filestem)-$step", FP.getdh(p)) do vtk
         vtk_point_data(vtk, FP.getdh(p), FP.getunknowns(p))
         vtk_save(vtk)
