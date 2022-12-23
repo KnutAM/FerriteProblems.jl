@@ -1,6 +1,3 @@
-
-apply_analytical!(args...; kwargs...) = initial_conditions!(args...; kwargs...)
-
 Ferrite.getfieldinterpolation(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].interpolation
 Ferrite.getfielddim(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].dim
 
@@ -14,7 +11,7 @@ function _default_interpolation(dh::DofHandler)
     return Ferrite.default_interpolation(typeof(getcells(dh.grid, 1)))
 end
 
-function initial_conditions!(
+function apply_analytical!(
     a::AbstractVector, dh::DofHandler, field::Symbol, f::Function, 
     cellset=1:getncells(dh.grid),
     ip_geo=_default_interpolation(dh)
@@ -24,10 +21,10 @@ function initial_conditions!(
     ip_fun = Ferrite.getfieldinterpolation(dh, field_idx)
     celldofinds = dof_range(dh, field)
     field_dim = Ferrite.getfielddim(dh, field_idx)
-    initial_conditions!(a, dh, celldofinds, field_dim, ip_fun, ip_geo, f, cellset)
+    apply_analytical!(a, dh, celldofinds, field_dim, ip_fun, ip_geo, f, cellset)
 end
 
-function initial_conditions!(
+function apply_analytical!(
     a::AbstractVector, dh::MixedDofHandler, field::Symbol, f::Function, 
     cellset=1:getncells(dh.grid),
     ip_geos=_default_interpolations(dh)
@@ -47,12 +44,12 @@ function initial_conditions!(
         ip_fun = Ferrite.getfieldinterpolation(fh, field_idx)
         field_dim = Ferrite.getfielddim(fh, field_idx)
         celldofinds = dof_range(fh, field)
-        initial_conditions!(a, dh, celldofinds, field_dim, ip_fun, ip_geo, f, intersect(fh.cellset, cellset))
+        apply_analytical!(a, dh, celldofinds, field_dim, ip_fun, ip_geo, f, intersect(fh.cellset, cellset))
     end
     return a
 end
 
-function initial_conditions!(
+function apply_analytical!(
     a::Vector, dh::Ferrite.AbstractDofHandler, celldofinds, field_dim,
     ip_fun::Interpolation, ip_geo::Interpolation, f::Function, cellset)
     
@@ -68,12 +65,12 @@ function initial_conditions!(
         Ferrite.celldofs!(c_dofs, dh, cellnr)
         # f_dofs .= c_dofs[celldofinds]
         foreach(i->(f_dofs[i] = c_dofs[celldofinds[i]]), 1:length(celldofinds)) 
-        initial_conditions!(a, f_dofs, coords, field_dim, ip_fun, ip_geo, f)
+        apply_analytical!(a, f_dofs, coords, field_dim, ip_fun, ip_geo, f)
     end
     return a
 end
 
-function initial_conditions!(a::Vector, dofs::Vector{Int}, coords::Vector{XT}, field_dim, ip_fun, ip_geo, f) where {XT<:Vec}
+function apply_analytical!(a::Vector, dofs::Vector{Int}, coords::Vector{XT}, field_dim, ip_fun, ip_geo, f) where {XT<:Vec}
 
     getnbasefunctions(ip_geo) == length(coords) || throw("coords=$coords not compatible with ip_ge=$ip_geo")
     ref_coords = Ferrite.reference_coordinates(ip_fun)

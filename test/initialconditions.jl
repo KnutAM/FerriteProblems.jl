@@ -26,7 +26,7 @@
                 @testset "udim=$udim, cell=$CellType, ip order=$iporder" begin    
                     dh = test_case(;udim=udim, CellType=CellType, iporder=iporder)
                     a = zeros(ndofs(dh))
-                    FP.initial_conditions!(a, dh, :u, f)
+                    FP.apply_analytical!(a, dh, :u, f)
                     @test sum(a)/length(a) ≈ udim/(1+udim)
                 end
             end
