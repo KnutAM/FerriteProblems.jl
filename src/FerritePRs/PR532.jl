@@ -1,5 +1,7 @@
-Ferrite.getfieldinterpolation(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].interpolation
-Ferrite.getfielddim(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].dim
+@static if !hasmethod(Ferrite.getfieldinterpolation, (FieldHandler, Int)) # Double check because also defined in FerriteNeumann.jl
+    Ferrite.getfieldinterpolation(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].interpolation
+    Ferrite.getfielddim(fh::FieldHandler, field_idx::Int) = fh.fields[field_idx].dim
+end
 
 function _default_interpolations(dh::MixedDofHandler)
     fhs = dh.fieldhandlers
