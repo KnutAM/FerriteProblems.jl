@@ -98,11 +98,11 @@ function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
 end;
 
 # We also define a helper function to plot the results after completion
-function plot_results(problem::FerriteProblem{<:PlasticityPostProcess}; 
+function plot_results(post::PlasticityPostProcess; 
     plt=plot(), label=nothing, markershape=:auto, markersize=4
     )
-    umax = vcat(0.0, problem.post.umag)
-    tmag = vcat(0.0, problem.post.tmag)
+    umax = vcat(0.0, post.umag)
+    tmag = vcat(0.0, post.tmag)
     plot!(plt, umax, tmag, linewidth=0.5, title="Traction-displacement", label=label, 
         markeralpha=0.75, markershape=markershape, markersize=markersize)
     ylabel!(plt, "Traction [Pa]")
@@ -125,13 +125,13 @@ function example_solution()
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(;num_steps=25,Δt=0.04))
     problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
     solve_problem!(problem, solver)
-    plt = plot_results(problem, label="uniform", markershape=:x, markersize=5)
+    plt = plot_results(problem.post, label="uniform", markershape=:x, markersize=5)
 
     ## Same time steps as Ferrite example, overwrite results by specifying the same folder
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0), FixedTimeStepper(append!([0.], collect(0.5:0.05:1.0))))
     problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "A"))
     solve_problem!(problem, solver)
-    plot_results(problem, plt=plt, label="fixed", markershape=:circle)
+    plot_results(problem.post, plt=plt, label="fixed", markershape=:circle)
     umax_solution[1] = problem.post.umag[end] # Save value for comparison  #hide
 
     ## Adaptive time stepping, save results to new folder
@@ -139,7 +139,7 @@ function example_solution()
     solver = QuasiStaticSolver(NewtonSolver(;tolerance=1.0, maxiter=6), ts)
     problem = FerriteProblem(def, PlasticityPostProcess(), joinpath(pwd(), "B"))
     solve_problem!(problem, solver)
-    plot_results(problem, plt=plt, label="adaptive", markershape=:circle)
+    plot_results(problem.post, plt=plt, label="adaptive", markershape=:circle)
     
     plot!(;legend=:bottomright)
     return plt, problem, solver

@@ -93,6 +93,8 @@ end
 # Do nothing if there is no io defined. 
 close_io(args...) = nothing 
 
+Base.close(io::FerriteIO) = close(io.fileobject[])
+
 """
     new_file!
 """
