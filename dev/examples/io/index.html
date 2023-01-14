@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>IO: Saving and loading simulations · FerriteProblems.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://KnutAM.github.io/FerriteProblems.jl/examples/io/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteProblems.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../plasticity/">Plasticity</a></li><li class="is-active"><a class="tocitem" href>IO: Saving and loading simulations</a></li><li><a class="tocitem" href="../transient_heat/">Linear Time Dependent Problem</a></li><li><a class="tocitem" href="../incompressible_elasticity/">Incompressible Elasticity</a></li><li><a class="tocitem" href="../porous_media/">Porous media</a></li></ul></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>IO: Saving and loading simulations</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>IO: Saving and loading simulations</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/KnutAM/FerriteProblems.jl/blob/main/docs/src/literate/io.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><p>Run plasticity sim</p><ul><li>load the data</li><li>recreate the plots</li><li>save to vtk for the last step</li></ul><h1 id="IO:-Saving-and-loading-simulations"><a class="docs-heading-anchor" href="#IO:-Saving-and-loading-simulations">IO: Saving and loading simulations</a><a id="IO:-Saving-and-loading-simulations-1"></a><a class="docs-heading-anchor-permalink" href="#IO:-Saving-and-loading-simulations" title="Permalink"></a></h1><p>The <code>FerriteProblems.jl</code> package includes support for saving simulation data using <a href="https://github.com/JuliaIO/JLD2.jl"><code>JLD2.jl</code></a>. This examples shows some examples of how this can be done. Specifically, we use the data saved during the plasticity example:</p><pre><code class="language-julia hljs">using Ferrite, FerriteProblems
+import FerriteProblems as FP
+include(&quot;plasticity.jl&quot;);</code></pre><p>In that example, the displacements and state variables were saved in each time step. In this example, we use the data saved in the folder <code>B</code> (using the <code>AdaptiveTimeStepper</code>) and plot a few interesting cases:</p><ul><li>Maximum von Mises stress as function of time</li><li>Export the final displacements and stress to <code>vtk</code></li></ul><p>We start by loading the results</p><pre><code class="language-julia hljs">io = FerriteIO(&quot;B/FerriteIO.jld2&quot;)
+def = FP.getdef(io)
+post = FP.getpost(io)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">JLD2.ReconstructedTypes.var&quot;##Main.PlasticityPostProcess{Float64}#337&quot;([500000.0, 1.1299605249474365e6, 1.9236610509315364e6, 2.9236610509315366e6, 4.1835821008264096e6, 5.770983152794609e6, 6.770983152794609e6, 7.400943677742044e6, 7.797793940734095e6, 7.996219072230119e6  …  9.12121907223012e6, 9.22121907223012e6, 9.321219072230121e6, 9.421219072230121e6, 9.521219072230121e6, 9.621219072230121e6, 9.721219072230121e6, 9.821219072230121e6, 9.91060953611506e6, 1.0e7], [0.006815329547579407, 0.015402106706896984, 0.026220768000677703, 0.03985142709639491, 0.05702498141503005, 0.07979733707960711, 0.09907207720979865, 0.11466565445552128, 0.12743702629702092, 0.1351812607076449  …  0.19459372101970185, 0.20087646888231966, 0.20728843754383508, 0.21380163221532736, 0.22046979790645901, 0.22731699689335275, 0.23427765230180259, 0.2413544766399844, 0.24778203171771976, 0.2542902161462004])</code></pre><p>Then, we get the time history and the displacement data saved to the <code>post</code> struct</p><pre><code class="language-julia hljs">t_history = FP.gettimedata(io)
+u_mag = post.umag
+
+plt1 = plot()
+plot!(plt1, t_history, u_mag*1e3)
+title!(plt1, &quot;maximum displacement&quot;)
+xlabel!(plt1, &quot;time [s]&quot;)
+ylabel!(plt1, &quot;umax [mm]&quot;)
+
+display(plt1)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">qt.qpa.xcb: could not connect to display
+qt.qpa.plugin: Could not load the Qt platform plugin &quot;xcb&quot; in &quot;&quot; even though it was found.
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+
+Available platform plugins are: linuxfb, minimal, offscreen, vnc, xcb.
+
+Aborted (core dumped)
+connect: Connection refused
+GKS: can&#39;t connect to GKS socket application
+
+GKS: Open failed in routine OPEN_WS
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine FILLAREA
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine FILLAREA
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE</code></pre><p>The maximum von Mises stress for each step is calculated next. Note that <code>step</code> refers to the count of saved steps, and not the actual simulation steps.</p><pre><code class="language-julia hljs">function get_max_vm_stress(step)
+    states = FP.getipdata(io, step, &quot;state&quot;)
+    σ_vm = maximum(cellstates -&gt; maximum(state -&gt; vonMises(state.σ), cellstates), states)
+    return σ_vm
+end
+
+σ_vm = get_max_vm_stress.(1:length(t_history))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">30-element Vector{Float64}:
+ 2.042097852752608e7
+ 4.6149799235023126e7
+ 7.856608203336987e7
+ 1.19408039090352e8
+ 1.708656805053461e8
+ 2.0249691404122844e8
+ 2.064372591325652e8
+ 2.102227286443594e8
+ 2.1366874417491034e8
+ 2.157200492316552e8
+ ⋮
+ 2.3228259677810565e8
+ 2.3381379726995972e8
+ 2.3535243849567205e8
+ 2.369087781187164e8
+ 2.3849660814789727e8
+ 2.4009881044948807e8
+ 2.4171181164994454e8
+ 2.4317017188261086e8
+ 2.4464235996036947e8</code></pre><p>Plot the analyzed results</p><pre><code class="language-julia hljs">plt2=plot()
+plot!(plt2, t_history, σ_vm*1e-6)
+title!(plt2, &quot;Maximum von Mises stress&quot;)
+xlabel!(plt2, &quot;time [s]&quot;)
+ylabel!(plt2, &quot;stress [MPa]&quot;)
+
+display(plt2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine FILLAREA
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine FILLAREA
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE</code></pre><p>Finally, we extract the degrees of freedom and the stresses in each element at the last step to save to vtk.</p><pre><code class="language-julia hljs">step = length(t_history)
+u = FP.getdofdata(io, step)
+states = FP.getipdata(io, step, &quot;state&quot;)
+dh = FP.getdh(def)
+mises_values = zeros(getncells(dh.grid))
+for (el, cell_states) in enumerate(states)
+    for state in cell_states
+        mises_values[el] += vonMises(state.σ)
+    end
+    mises_values[el] /= length(cell_states) # average von Mises stress
+end
+vtk_grid(&quot;plasticity&quot;, dh) do vtkfile
+    vtk_point_data(vtkfile, dh, u) # displacement field
+    vtk_cell_data(vtkfile, mises_values, &quot;von Mises [Pa]&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element Vector{String}:
+ &quot;plasticity.vtu&quot;</code></pre><p>We do need to close any open files from the <code>io</code> object, which we simply do by calling <code>close</code>:</p><pre><code class="language-julia hljs">close(io)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../transient_heat/">Linear Time Dependent Problem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Saturday 14 January 2023 13:48">Saturday 14 January 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

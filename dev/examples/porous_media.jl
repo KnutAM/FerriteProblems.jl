@@ -81,7 +81,7 @@ end
 
 function get_grid()
     # Import grid from abaqus mesh
-    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p75.inp"))
+    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media", "porous_media_0p75.inp"))
 
     # Create cellsets for each fieldhandler
     addcellset!(grid, "solid3", intersect(getcellset(grid, "solid"), getcellset(grid, "CPS3")))
