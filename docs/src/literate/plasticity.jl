@@ -29,7 +29,8 @@ include("J2Plasticity.jl");
 # ## Problem definition
 # We first create the problem's definition
 
-traction_function(time) = Vec{3}((0.0, 0.0, time*1.e7)) # N/m² 
+traction_function(t) = Vec{3}((0.0, 0.0, t*1.e7)) # N/m² 
+traction_function(x, t, n) =  traction_function(t)  
 
 function setup_problem_definition()
     ## Define material properties ("J2Plasticity.jl" file)
@@ -44,13 +45,13 @@ function setup_problem_definition()
 
     ## Constraints (Dirichlet boundary conditions, `Ferrite.jl`)
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(grid, "left"), (x,t) -> zeros(3), [1, 2, 3]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{3})), [1, 2, 3]))
     close!(ch)
 
     ## Neumann boundary conditions (`FerriteNeumann.jl`)
     nh = NeumannHandler(dh)
     quad_order = 3
-    add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), (x,t,n)->traction_function(t)))
+    add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
 
     return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material)
 end;
