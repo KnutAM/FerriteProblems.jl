@@ -3,7 +3,7 @@
 import FerriteProblems as FP
 include(&quot;plasticity.jl&quot;);</code></pre><p>In that example, the displacements and state variables were saved in each time step. In this example, we use the data saved in the folder <code>B</code> (using the <code>AdaptiveTimeStepper</code>) and plot a few interesting cases:</p><ul><li>Maximum von Mises stress as function of time</li><li>Export the final displacements and stress to <code>vtk</code></li></ul><p>We start by loading the results</p><pre><code class="language-julia hljs">io = FerriteIO(&quot;B/FerriteIO.jld2&quot;)
 def = FP.getdef(io)
-post = FP.getpost(io)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">JLD2.ReconstructedTypes.var&quot;##Main.PlasticityPostProcess{Float64}#337&quot;([500000.0, 1.1299605249474365e6, 1.9236610509315364e6, 2.9236610509315366e6, 4.1835821008264096e6, 5.770983152794609e6, 6.770983152794609e6, 7.400943677742044e6, 7.797793940734095e6, 7.996219072230119e6  …  9.12121907223012e6, 9.22121907223012e6, 9.321219072230121e6, 9.421219072230121e6, 9.521219072230121e6, 9.621219072230121e6, 9.721219072230121e6, 9.821219072230121e6, 9.91060953611506e6, 1.0e7], [0.006815329547579407, 0.015402106706896984, 0.026220768000677703, 0.03985142709639491, 0.05702498141503005, 0.07979733707960711, 0.09907207720979865, 0.11466565445552128, 0.12743702629702092, 0.1351812607076449  …  0.19459372101970185, 0.20087646888231966, 0.20728843754383508, 0.21380163221532736, 0.22046979790645901, 0.22731699689335275, 0.23427765230180259, 0.2413544766399844, 0.24778203171771976, 0.2542902161462004])</code></pre><p>Then, we get the time history and the displacement data saved to the <code>post</code> struct</p><pre><code class="language-julia hljs">t_history = FP.gettimedata(io)
+post = FP.getpost(io)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">JLD2.ReconstructedTypes.var&quot;##Main.PlasticityPostProcess{Float64}#337&quot;([500000.0, 1.1299605249474365e6, 1.9236610509315364e6, 2.9236610509315366e6, 4.1835821008264096e6, 5.770983152794609e6, 6.770983152794609e6, 7.400943677742044e6, 7.797793940734095e6, 8.047793940734095e6  …  9.105284071970955e6, 9.205284071970955e6, 9.305284071970955e6, 9.405284071970955e6, 9.505284071970955e6, 9.605284071970955e6, 9.705284071970955e6, 9.805284071970956e6, 9.90264203598548e6, 1.0e7], [0.006815329547576863, 0.015402106706893768, 0.02622076800067365, 0.03985142709638982, 0.057024981415023636, 0.07979733707960704, 0.09907207725627562, 0.11466565444446171, 0.1274370261763051, 0.1373313100048709  …  0.1936139259732988, 0.19986901791563982, 0.20625944539327226, 0.21275925860196418, 0.21939371720583214, 0.22622313502384084, 0.23316144284050877, 0.24022135517741222, 0.24720523285304918, 0.25429198190444524])</code></pre><p>Then, we get the time history and the displacement data saved to the <code>post</code> struct</p><pre><code class="language-julia hljs">t_history = FP.gettimedata(io)
 u_mag = post.umag
 
 plt1 = plot()
@@ -70,27 +70,27 @@ GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in ro
     return σ_vm
 end
 
-σ_vm = get_max_vm_stress.(1:length(t_history))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">30-element Vector{Float64}:
- 2.042097852752608e7
- 4.6149799235023126e7
- 7.856608203336987e7
- 1.19408039090352e8
- 1.708656805053461e8
+σ_vm = get_max_vm_stress.(1:length(t_history))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">29-element Vector{Float64}:
+ 2.042097852751831e7
+ 4.614979923501341e7
+ 7.856608203335759e7
+ 1.1940803909033652e8
+ 1.7086568050532675e8
  2.0249691404122844e8
- 2.064372591325652e8
- 2.102227286443594e8
- 2.1366874417491034e8
- 2.157200492316552e8
+ 2.0643725913608035e8
+ 2.1022272863208038e8
+ 2.1366874405303457e8
+ 2.1628952042039308e8
  ⋮
- 2.3228259677810565e8
- 2.3381379726995972e8
- 2.3535243849567205e8
- 2.369087781187164e8
- 2.3849660814789727e8
- 2.4009881044948807e8
- 2.4171181164994454e8
- 2.4317017188261086e8
- 2.4464235996036947e8</code></pre><p>Plot the analyzed results</p><pre><code class="language-julia hljs">plt2=plot()
+ 2.3204091275265846e8
+ 2.335704479856205e8
+ 2.351076202020276e8
+ 2.3665827958595115e8
+ 2.3824335703364453e8
+ 2.3984319722484156e8
+ 2.4145511285538125e8
+ 2.4303996310966364e8
+ 2.4464325163128147e8</code></pre><p>Plot the analyzed results</p><pre><code class="language-julia hljs">plt2=plot()
 plot!(plt2, t_history, σ_vm*1e-6)
 title!(plt2, &quot;Maximum von Mises stress&quot;)
 xlabel!(plt2, &quot;time [s]&quot;)
@@ -148,4 +148,4 @@ vtk_grid(&quot;plasticity&quot;, dh) do vtkfile
     vtk_point_data(vtkfile, dh, u) # displacement field
     vtk_cell_data(vtkfile, mises_values, &quot;von Mises [Pa]&quot;)
 end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element Vector{String}:
- &quot;plasticity.vtu&quot;</code></pre><p>We do need to close any open files from the <code>io</code> object, which we simply do by calling <code>close</code>:</p><pre><code class="language-julia hljs">close(io)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../transient_heat/">Linear Time Dependent Problem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Saturday 14 January 2023 13:48">Saturday 14 January 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ &quot;plasticity.vtu&quot;</code></pre><p>We do need to close any open files from the <code>io</code> object, which we simply do by calling <code>close</code>:</p><pre><code class="language-julia hljs">close(io)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../transient_heat/">Linear Time Dependent Problem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Saturday 14 January 2023 14:29">Saturday 14 January 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

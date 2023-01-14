@@ -11,11 +11,44 @@
 # `:u`, as well as the liquid pressure, `:p`, as unknown. The computational domain
 # is shown below
 #
+# ```@raw html
+# <table><tbody><tr height="300px"><td style="text-align: left;">
+# ```
 # ![Computational domain](porous_media/domain.svg)
+# ```@raw html
+# </td><td>
+# ```
 # ![Pressure evolution](porous_media/pressure.gif)
+# ```@raw html
+# </td><td>
+# ```
 # ![Pressure legend](porous_media/pressure_legend.png)
+# ```@raw html
+# </td><td>
+# ```
 # ![u2 evolution](porous_media/u2.gif)
+# ```@raw html
+# </td><td>
+# ```
 # ![u2 legend](porous_media/u2_legend.png)
+# ```@raw html
+# </tr><tr><td>
+# ```
+# Computational domain
+# ```@raw html
+# </td><td>
+# ```
+# Pressure evolution
+# ```@raw html
+# </td><td></td><td>
+# ```
+# Vertical displacements¨
+# ```@raw html
+# </td><td>
+# ```
+# ```@raw html
+# </td></tr></tbody></table>
+# ```
 #
 #
 # ## Theory of porous media
