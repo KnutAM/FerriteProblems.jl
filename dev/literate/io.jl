@@ -1,8 +1,3 @@
-# Run plasticity sim 
-# - load the data 
-# - recreate the plots 
-# - save to vtk for the last step 
-
 # # IO: Saving and loading simulations
 # The `FerriteProblems.jl` package includes support for saving simulation data using
 # [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl). This examples shows some examples 
@@ -21,7 +16,7 @@ include("plasticity.jl");
 # We start by loading the results
 io = FerriteIO("B/FerriteIO.jld2")
 def = FP.getdef(io)
-post = FP.getpost(io)
+post = FP.getpost(io);
 
 # Then, we get the time history and the displacement data saved to the `post` struct
 t_history = FP.gettimedata(io)
@@ -43,7 +38,7 @@ function get_max_vm_stress(step)
     return σ_vm
 end
 
-σ_vm = get_max_vm_stress.(1:length(t_history))
+σ_vm = get_max_vm_stress.(1:length(t_history));
 
 # Plot the analyzed results
 plt2=plot()
@@ -70,7 +65,7 @@ end
 vtk_grid("plasticity", dh) do vtkfile
     vtk_point_data(vtkfile, dh, u) # displacement field
     vtk_cell_data(vtkfile, mises_values, "von Mises [Pa]")
-end
+end;
 
 # We do need to close any open files from the `io` object, which we simply do
 # by calling `close`: 

@@ -4,7 +4,7 @@ include("plasticity.jl");
 
 io = FerriteIO("B/FerriteIO.jld2")
 def = FP.getdef(io)
-post = FP.getpost(io)
+post = FP.getpost(io);
 
 t_history = FP.gettimedata(io)
 u_mag = post.umag
@@ -23,7 +23,7 @@ function get_max_vm_stress(step)
     return σ_vm
 end
 
-σ_vm = get_max_vm_stress.(1:length(t_history))
+σ_vm = get_max_vm_stress.(1:length(t_history));
 
 plt2=plot()
 plot!(plt2, t_history, σ_vm*1e-6)
@@ -47,7 +47,7 @@ end
 vtk_grid("plasticity", dh) do vtkfile
     vtk_point_data(vtkfile, dh, u) # displacement field
     vtk_cell_data(vtkfile, mises_values, "von Mises [Pa]")
-end
+end;
 
 close(io)
 
