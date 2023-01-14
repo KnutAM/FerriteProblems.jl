@@ -27,7 +27,7 @@ function build_examples(examples)
     for example in readdir(EXAMPLEDIR)
         supplementary_ext = any(endswith.(example, suplementary_fileextensions))
         supplementary_jl = endswith(example, ".jl") && example ∉ examples
-        if supplementary_ext || supplementary_jl
+        if supplementary_ext || supplementary_jl || !isfile(example)
             cp(joinpath(EXAMPLEDIR, example), joinpath(GENERATEDDIR, example); force=true)
         end
     end

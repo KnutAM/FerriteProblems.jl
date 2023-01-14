@@ -11,6 +11,12 @@
 # `:u`, as well as the liquid pressure, `:p`, as unknown. The computational domain
 # is shown below
 #
+# ![Computational domain](porous_media/domain.svg)
+# ![Pressure evolution](porous_media/pressure.gif)
+# ![Pressure legend](porous_media/pressure_legend.png)
+# ![u2 evolution](porous_media/u2.gif)
+# ![u2 legend](porous_media/u2_legend.png)
+#
 #
 # ## Theory of porous media
 # The strong forms are given as
@@ -176,14 +182,14 @@ end
 # ## Problem definition
 # ### Mesh import
 # In this example, we import the mesh from the Abaqus input file, 
-# [`porous_media_0p75.inp`](porous_media_0p75.inp) using `FerriteMeshParser`'s 
+# [`porous_media_0p75.inp`](porous_media/porous_media_0p75.inp) using `FerriteMeshParser`'s 
 # `get_ferrite_grid` function. 
-# (A finer mesh, [`porous_media_0p25.inp`](porous_media_0p25.inp), is also available)
+# (A finer mesh, [`porous_media_0p25.inp`](porous_media/porous_media_0p25.inp), is also available)
 # We then create one cellset for each phase (solid and porous)
 # for each element type. These 4 sets will later be used in their own `FieldHandler`
 function get_grid()
     ## Import grid from abaqus mesh
-    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media_0p75.inp"))
+    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media", "porous_media_0p75.inp"))
 
     ## Create cellsets for each fieldhandler
     addcellset!(grid, "solid3", intersect(getcellset(grid, "solid"), getcellset(grid, "CPS3")))

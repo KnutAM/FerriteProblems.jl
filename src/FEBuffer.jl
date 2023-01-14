@@ -150,7 +150,7 @@ function copy_states!(to::T, from::T) where T<:Vector{<:Vector}
         copy_states!(toval, fromval)
     end
 end
-function copy_states!(to::T, from::T) where T<:Dict{Int,<:Vector}
+function copy_states!(to::T, from::T) where T<:Dict{<:Union{Int,String},<:Vector}
     for (key, fromval) in from
         copy_states!(to[key], fromval)
     end
