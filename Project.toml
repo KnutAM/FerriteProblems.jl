@@ -14,7 +14,7 @@ MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
-julia = "1.7"
+julia = "1.8"
 FerriteAssembly = "0.2"
 FESolvers = "0.2"
 Ferrite = "0.3.10"
