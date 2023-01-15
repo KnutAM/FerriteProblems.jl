@@ -9,7 +9,7 @@
 # these particles and the only unknown variable is the displacement field `:u`. 
 # In the porous media, denoted the matrix, we have both the displacement field,
 # `:u`, as well as the liquid pressure, `:p`, as unknown. The computational domain
-# is shown below
+# is shown below (*the outdated figure doesn't show correct boundary conditions*)
 #
 # ```@raw html
 # <table><tbody><tr height="300px"><td style="text-align: left;">
@@ -210,7 +210,7 @@ function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic,
             rp[iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
         end
     end
-end
+end;
 
 # ## Problem definition
 # ### Mesh import
@@ -286,7 +286,7 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     materials = (Elastic(), Elastic(), PoroElastic(), PoroElastic())
 
     return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=materials, cc=FP.RelativeResidualElementScaling())
-end
+end;
 
 # ## Postprocessing
 struct PostProcess{PVD}
@@ -306,15 +306,11 @@ function FESolvers.postprocess!(post::PostProcess, p, step, solver)
     end
 end
 
-FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd)
+FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd);
 
 # ## Solving
-# Without the real PR427 there will be a lot of warnings. when creating the definition.
-# As a temporary solution, we just disable warnings during definition creation
-using Logging
-Logging.disable_logging(Logging.Warn)
+# We solve the problem by using linearly increasing time steps
 problem = FerriteProblem(create_definition(), PostProcess())
-Logging.disable_logging(Logging.LogLevel(-1))
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
