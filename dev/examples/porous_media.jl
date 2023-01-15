@@ -77,7 +77,7 @@ function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic,
             rp[iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
         end
     end
-end
+end;
 
 function get_grid()
     # Import grid from abaqus mesh
@@ -143,7 +143,7 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     materials = (Elastic(), Elastic(), PoroElastic(), PoroElastic())
 
     return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=materials, cc=FP.RelativeResidualElementScaling())
-end
+end;
 
 struct PostProcess{PVD}
     pvd::PVD
@@ -162,12 +162,9 @@ function FESolvers.postprocess!(post::PostProcess, p, step, solver)
     end
 end
 
-FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd)
+FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd);
 
-using Logging
-Logging.disable_logging(Logging.Warn)
 problem = FerriteProblem(create_definition(), PostProcess())
-Logging.disable_logging(Logging.LogLevel(-1))
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
