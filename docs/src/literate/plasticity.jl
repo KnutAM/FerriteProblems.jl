@@ -102,9 +102,7 @@ end;
 function plot_results(post::PlasticityPostProcess; 
     plt=plot(), label=nothing, markershape=:auto, markersize=4
     )
-    umax = vcat(0.0, post.umag)
-    tmag = vcat(0.0, post.tmag)
-    plot!(plt, umax, tmag, linewidth=0.5, title="Traction-displacement", label=label, 
+    plot!(plt, post.umag, post.tmag, linewidth=0.5, title="Traction-displacement", label=label, 
         markeralpha=0.75, markershape=markershape, markersize=markersize)
     ylabel!(plt, "Traction [Pa]")
     xlabel!(plt, "Maximum deflection [m]")

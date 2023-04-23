@@ -1,16 +1,16 @@
-struct FerriteIO
-    folder::ScalarWrapper{String}       # Where the results are saved
-    def_file::String                    # Name of file saving the `def`
-    postfile::String                    # Name of file saving the `post` (if given)
-    nsteps_per_file::Int                # Maximum number of steps per data file
-    switchsize::Float64                 # Size of data file (MB) when go to next file
-    currentsize::ScalarWrapper{Int}     # Approximate current size of data file (B)
-    time::Vector                        # Time history
-    filesteps::Vector{Int}              # Step of datafiles step[k] gives first step of datafiles[k]
-    datafiles::Vector{String}           # Name of each datafile
-    fileobject::ScalarWrapper           # Current file, empty upon saving
-    filenumber::ScalarWrapper{Int}      # Current file in `fileobject`
-    dof2node::Dict{Symbol, Matrix{Int}} # Output from `reshape_to_nodes(1:ndof)`
+mutable struct FerriteIO
+    folder::String                  # Where the results are saved
+    const def_file::String          # Name of file saving the `def`
+    const postfile::String          # Name of file saving the `post` (if given)
+    const nsteps_per_file::Int      # Maximum number of steps per data file
+    const switchsize::Float64       # Size of data file (MB) when go to next file
+    currentsize::Int                # Approximate current size of data file (B)
+    const time::Vector              # Time history
+    const filesteps::Vector{Int}    # Step of datafiles step[k] gives first step of datafiles[k]
+    const datafiles::Vector{String} # Name of each datafile
+    fileobject::Any                 # Current file, empty upon saving
+    filenumber::Int                 # Current file in `fileobject`
+    const dof2node::Dict{Symbol, Matrix{Int}} # Output from `reshape_to_nodes(1:ndof)`
 end
 
 """
@@ -43,11 +43,10 @@ function FerriteIO(
     
     file = new_file!(filesteps, datafiles, folder)
     return FerriteIO(
-        ScalarWrapper(folder), def_file, _postfile, 
-        nsteps_per_file, switchsize, ScalarWrapper(0),
+        folder, def_file, _postfile, 
+        nsteps_per_file, switchsize, 0,
         time, filesteps, datafiles, 
-        ScalarWrapper(file), ScalarWrapper(1),
-        dof2node
+        file, 1, dof2node
         )
 end
 
@@ -59,17 +58,17 @@ Constructor for reading a `FerriteIO` that was saved during a simulation
 function FerriteIO(filename::String)
     endswith(filename, ".jld2") || @warn("Expected file ending with \".jld2\", unlike $filename")
     io = get_problem_part(filename, "io", FerriteIO)
-    io.folder[] = dirname(filename) # Update folder location, assume that other files maintain relative paths
-    io.filenumber[] = -1            # Force re-opening file if needed
+    io.folder = dirname(filename) # Update folder location, assume that other files maintain relative paths
+    io.filenumber = -1            # Force re-opening file if needed
     return io
 end
 
 """
-    filepath(io::FerriteIO, args...) = joinpath(io.folder[], args...)
+    filepath(io::FerriteIO, args...) = joinpath(io.folder, args...)
 
 Get the path of a file relative `io`'s folder
 """
-filepath(io::FerriteIO, args...) = joinpath(io.folder[], args...) # internal
+filepath(io::FerriteIO, args...) = joinpath(io.folder, args...) # internal
 
 """
     datafilepath(io::FerriteIO, num=length(io.datafiles))
@@ -86,23 +85,23 @@ struct to a jld2 file (if not `post != nothing`),
 before finally saving the current `io` object to a .jld2 file
 """
 function close_io(io::FerriteIO, post)   # internal
-    close(io.fileobject[])
+    close(io.fileobject)
     isnothing(post) || jldsave(filepath(io, io.postfile); post=post)
-    jldsave(joinpath(io.folder[], "FerriteIO.jld2"), io=io)
+    jldsave(joinpath(io.folder, "FerriteIO.jld2"), io=io)
 end
 # Do nothing if there is no io defined. 
 close_io(args...) = nothing 
 
-Base.close(io::FerriteIO) = close(io.fileobject[])
+Base.close(io::FerriteIO) = close(io.fileobject)
 
 """
     new_file!
 """
 function new_file!(io::FerriteIO)   # internal
-    close(io.fileobject[])
-    io.currentsize[] = 0
-    io.fileobject[] = new_file!(io.filesteps, io.datafiles, io.folder[])
-    io.filenumber[] += 1
+    close(io.fileobject)
+    io.currentsize = 0
+    io.fileobject = new_file!(io.filesteps, io.datafiles, io.folder)
+    io.filenumber += 1
 end
 
 function new_file!(filesteps::Vector{Int}, datafiles::Vector{String}, folder::String) # internal
@@ -142,7 +141,7 @@ end
     update_currentsize!
 """
 function update_currentsize!(io, val) # internal
-    io.currentsize[] += Base.summarysize(val)
+    io.currentsize += Base.summarysize(val)
 end
 
 """
@@ -151,7 +150,7 @@ end
 function savedata!(io::FerriteIO, vals, type::String, field::String, dt_order::Int) # internal
     step = string(length(io.time))
     update_currentsize!(io, vals)
-    file = io.fileobject[]
+    file = io.fileobject
     file["$step/$dt_order/$type/$field"] = vals
 end
 
@@ -227,10 +226,10 @@ getfilenumber(io, step) = findfirst(x -> x > step, io.filesteps) - 1    # intern
 """
 function open_if_needed!(io::FerriteIO, step, mode="r") # internal
     num = getfilenumber(io, step)
-    if num != io.filenumber[]
-        close(io.fileobject[])
-        io.fileobject[] = jldopen(datafilepath(io, num), mode)
-        io.filenumber[] = num
+    if num != io.filenumber
+        close(io.fileobject)
+        io.fileobject = jldopen(datafilepath(io, num), mode)
+        io.filenumber = num
     end
 end
 
@@ -270,7 +269,7 @@ gettimedata(io::FerriteIO, step) = io.time[step]
 """
 function getdata(io::FerriteIO, step::Int, type, field, dt_order)
     open_if_needed!(io::FerriteIO, step)
-    file = io.fileobject[]
+    file = io.fileobject
     checkkey(file, step, dt_order, type, field) # Errors if not ok
     # Copy, otherwise we can change the contents!!!
     return copy(file["$step/$dt_order/$type/$field"])
@@ -341,7 +340,7 @@ end
 Load the `FEDefinition` from the results saved by `io`
 """
 function getdef(io::FerriteIO)
-    filename = joinpath(io.folder[], io.def_file)
+    filename = joinpath(io.folder, io.def_file)
     return get_problem_part(filename, "def", FEDefinition)
 end
 
@@ -351,7 +350,7 @@ end
 Load the user defined `post` from the results saved by `io`
 """
 function getpost(io::FerriteIO)
-    filename = joinpath(io.folder[], io.postfile)
+    filename = joinpath(io.folder, io.postfile)
     return get_problem_part(filename, "post", Any)
 end
     

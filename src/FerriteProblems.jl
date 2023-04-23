@@ -5,7 +5,6 @@ using FileIO, JLD2
 using Ferrite
 using FESolvers, FerriteAssembly, FerriteNeumann
 using MaterialModelsBase
-import FESolvers: ScalarWrapper
 import FESolvers: getunknowns, getresidual, getjacobian 
 
 export FerriteProblem, FEDefinition, FerriteIO

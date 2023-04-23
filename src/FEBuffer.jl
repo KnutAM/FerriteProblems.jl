@@ -4,18 +4,18 @@
 A buffer to hold all values that are required to simulate, 
 but that are uniqely defined from the simulation definition
 """
-struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST,TS} # internal 
-    K::KT
-    x::Vector{T}
-    r::Vector{T}
-    f::Vector{T}
-    xold::Vector{T}
-    cellbuffer::CB
-    state::ST
-    old_state::ST
-    time::ScalarWrapper{T}
-    old_time::ScalarWrapper{T}
-    tolscaling::TS
+mutable struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST,TS} # internal 
+    const K::KT
+    const x::Vector{T}
+    const r::Vector{T}
+    const f::Vector{T}
+    const xold::Vector{T}
+    const cellbuffer::CB
+    const state::ST
+    const old_state::ST
+    time::T
+    old_time::T
+    const tolscaling::TS
 end
 
 """
@@ -49,8 +49,8 @@ function FEBuffer(def::FEDefinition)
     cellbuffer = makecellbuffer(def)
     state = deepcopy(def.initialstate)
     old_state = deepcopy(def.initialstate)
-    time = ScalarWrapper(0.0)
-    old_time = ScalarWrapper(0.0)
+    time = 0.0
+    old_time = 0.0
     return FEBuffer(K, x, r, f, xold, cellbuffer, state, old_state, time, old_time, TolScaling(def.cc, def))
 end
 
@@ -183,14 +183,14 @@ reset_states!(b::FEBuffer) = copy_states!(b.state, getoldstate(b))  # internal
 
 Get the current time
 """
-gettime(b::FEBuffer) = b.time[]
+gettime(b::FEBuffer) = b.time
 
 """
     FerriteProblems.getoldtime(p::FerriteProblem)
 
 Get time of the previous converged step
 """
-getoldtime(b::FEBuffer) = b.old_time[]
+getoldtime(b::FEBuffer) = b.old_time
 
 """
     FerriteProblems.settime!(p::FerriteProblem, new_time)
@@ -199,7 +199,7 @@ Set the current time to `new_time`
 Called when starting a new step (or when attempting the same 
 step number with a new time increment)
 """
-settime!(b::FEBuffer, new_time) = (b.time[] = new_time) # internal
+settime!(b::FEBuffer, new_time) = (b.time = new_time) # internal
 
 """
     FerriteProblems.update_time!(p::FerriteProblem)
@@ -207,4 +207,4 @@ settime!(b::FEBuffer, new_time) = (b.time[] = new_time) # internal
 Update the old time to the current time. 
 Called after convergence
 """
-update_time!(b::FEBuffer) = (b.old_time[] = gettime(b)) # internal
+update_time!(b::FEBuffer) = (b.old_time = gettime(b)) # internal
