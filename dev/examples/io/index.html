@@ -4,15 +4,15 @@ import FerriteProblems as FP
 include(&quot;plasticity.jl&quot;);</code></pre><p>In that example, the displacements and state variables were saved in each time step. In this example, we use the data saved in the folder <code>B</code> (using the <code>AdaptiveTimeStepper</code>) and plot a few interesting cases:</p><ul><li>Maximum von Mises stress as function of time</li><li>Export the final displacements and stress to <code>vtk</code></li></ul><p>We start by loading the results</p><pre><code class="language-julia hljs">io = FerriteIO(&quot;B/FerriteIO.jld2&quot;)
 def = FP.getdef(io)
 post = FP.getpost(io);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: type Main.J2PlasticityMaterialState{Float64,Tensors.SymmetricTensor{2, 3, Float64, 6}} does not exist in workspace; reconstructing
-└ @ JLD2 ~/.julia/packages/JLD2/1YVED/src/data/reconstructing_datatypes.jl:495
+└ @ JLD2 ~/.julia/packages/JLD2/ryhNR/src/data/reconstructing_datatypes.jl:495
 ┌ Warning: type Main.J2Plasticity{Float64,Tensors.SymmetricTensor{4, 3, Float64, 36}} does not exist in workspace; reconstructing
-└ @ JLD2 ~/.julia/packages/JLD2/1YVED/src/data/reconstructing_datatypes.jl:495
+└ @ JLD2 ~/.julia/packages/JLD2/ryhNR/src/data/reconstructing_datatypes.jl:495
 ┌ Warning: type Main.J2PlasticityMaterialState{Float64,Tensors.SymmetricTensor{2, 3, Float64, 6}} does not exist in workspace; reconstructing
-└ @ JLD2 ~/.julia/packages/JLD2/1YVED/src/data/reconstructing_datatypes.jl:495
-┌ Warning: some parameters could not be resolved for type FerriteNeumann.NeumannData{Ferrite.FaceVectorValues{3, Float64, Ferrite.RefTetrahedron, 9},Main.#traction_function}; reconstructing
-└ @ JLD2 ~/.julia/packages/JLD2/1YVED/src/data/reconstructing_datatypes.jl:485
+└ @ JLD2 ~/.julia/packages/JLD2/ryhNR/src/data/reconstructing_datatypes.jl:495
+┌ Warning: type Main.VectorRamp{3,Float64} does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/ryhNR/src/data/reconstructing_datatypes.jl:495
 ┌ Warning: type Main.PlasticityPostProcess{Float64} does not exist in workspace; reconstructing
-└ @ JLD2 ~/.julia/packages/JLD2/1YVED/src/data/reconstructing_datatypes.jl:495</code></pre><p>Then, we get the time history and the displacement data saved to the <code>post</code> struct</p><pre><code class="language-julia hljs">t_history = FP.gettimedata(io)
+└ @ JLD2 ~/.julia/packages/JLD2/ryhNR/src/data/reconstructing_datatypes.jl:495</code></pre><p>Then, we get the time history and the displacement data saved to the <code>post</code> struct</p><pre><code class="language-julia hljs">t_history = FP.gettimedata(io)
 u_mag = post.umag
 
 plt1 = plot()
@@ -80,7 +80,7 @@ GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in ro
 end
 
 σ_vm = get_max_vm_stress.(1:length(t_history));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: type Main.J2PlasticityMaterialState{Float64,Tensors.SymmetricTensor{2, 3, Float64, 6}} does not exist in workspace; reconstructing
-└ @ JLD2 ~/.julia/packages/JLD2/1YVED/src/data/reconstructing_datatypes.jl:495</code></pre><p>Plot the analyzed results</p><pre><code class="language-julia hljs">plt2=plot()
+└ @ JLD2 ~/.julia/packages/JLD2/ryhNR/src/data/reconstructing_datatypes.jl:495</code></pre><p>Plot the analyzed results</p><pre><code class="language-julia hljs">plt2=plot()
 plot!(plt2, t_history, σ_vm*1e-6)
 title!(plt2, &quot;Maximum von Mises stress&quot;)
 xlabel!(plt2, &quot;time [s]&quot;)
@@ -116,6 +116,9 @@ GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in ro
 GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
 GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
 GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine POLYLINE
+GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
 GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
 GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
 GKS: GKS not in proper state. GKS must be either in the state WSAC or SGOP in routine TEXT
@@ -137,4 +140,4 @@ end
 vtk_grid(&quot;plasticity&quot;, dh) do vtkfile
     vtk_point_data(vtkfile, dh, u) # displacement field
     vtk_cell_data(vtkfile, mises_values, &quot;von Mises [Pa]&quot;)
-end;</code></pre><p>We do need to close any open files from the <code>io</code> object, which we simply do by calling <code>close</code>:</p><pre><code class="language-julia hljs">close(io)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../transient_heat/">Linear Time Dependent Problem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Sunday 15 January 2023 21:27">Sunday 15 January 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+end;</code></pre><p>We do need to close any open files from the <code>io</code> object, which we simply do by calling <code>close</code>:</p><pre><code class="language-julia hljs">close(io)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../plasticity/">« Plasticity</a><a class="docs-footer-nextpage" href="../transient_heat/">Linear Time Dependent Problem »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Sunday 23 April 2023 15:50">Sunday 23 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
