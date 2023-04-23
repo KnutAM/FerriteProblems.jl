@@ -28,8 +28,7 @@ title!(plt1, "maximum displacement")
 xlabel!(plt1, "time [s]")
 ylabel!(plt1, "umax [mm]")
 
-# don't execute #src
-display(plt1) #!src
+display(plt1) #!jl
 
 # The maximum von Mises stress for each step is calculated next. Note that `step` refers 
 # to the count of saved steps, and not the actual simulation steps.
@@ -48,8 +47,7 @@ title!(plt2, "Maximum von Mises stress")
 xlabel!(plt2, "time [s]")
 ylabel!(plt2, "stress [MPa]")
 
-# don't execute #src
-display(plt2) #!src
+display(plt2) #!jl
 
 # Finally, we extract the degrees of freedom and the stresses in each element 
 # at the last step to save to vtk. 

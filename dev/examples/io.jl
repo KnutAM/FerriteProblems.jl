@@ -15,8 +15,6 @@ title!(plt1, "maximum displacement")
 xlabel!(plt1, "time [s]")
 ylabel!(plt1, "umax [mm]")
 
-display(plt1) #!src
-
 function get_max_vm_stress(step)
     states = FP.getipdata(io, step, "state")
     σ_vm = maximum(cellstates -> maximum(state -> vonMises(state.σ), cellstates), states)
@@ -30,8 +28,6 @@ plot!(plt2, t_history, σ_vm*1e-6)
 title!(plt2, "Maximum von Mises stress")
 xlabel!(plt2, "time [s]")
 ylabel!(plt2, "stress [MPa]")
-
-display(plt2) #!src
 
 step = length(t_history)
 u = FP.getdofdata(io, step)
