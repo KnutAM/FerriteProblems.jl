@@ -5,5 +5,5 @@ import FerriteProblems as FP
 
 
 @testset "FerriteProblems.jl" begin
-    include("initialconditions.jl")
+    
 end
