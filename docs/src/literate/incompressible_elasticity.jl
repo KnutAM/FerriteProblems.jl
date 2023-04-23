@@ -57,17 +57,6 @@ function create_dofhandler(grid, ipu, ipp)
     return dh
 end;
 
-# We also need to add Dirichlet boundary conditions on the `"clamped"` faceset.
-# We specify a homogeneous Dirichlet bc on the displacement field, `:u`.
-function create_bc(dh)
-    dbc = ConstraintHandler(dh)
-    add!(dbc, Dirichlet(:u, getfaceset(dh.grid, "clamped"), (x,t) -> zero(Vec{2}), [1,2]))
-    close!(dbc)
-    t = 0.0
-    update!(dbc, t)
-    return dbc
-end;
-
 # The material is linear elastic, which is here specified by the shear and bulk moduli
 struct LinearElasticity{T}
     G::T
@@ -85,11 +74,14 @@ function FP.allocate_material_cache(::LinearElasticity, cv::NamedTuple)
     return collect([symmetric(shape_gradient(cellvalues_u, 1, i)) for i in 1:getnbasefunctions(cellvalues_u)])
 end
 
-
 function create_definition(ν, ip_u, ip_p)
     grid = create_cook_grid(50, 50)
     dh = create_dofhandler(grid, ip_u, ip_p)
-    ch = create_bc(dh)
+    ch = ConstraintHandler(dh)
+    add!(ch, Dirichlet(:u, getfaceset(dh.grid, "clamped"), Returns(zero(Vec{2}))))
+    close!(ch)
+    update!(ch, 0.0)
+
     cv_u, cv_p, fv = create_values(ip_u, ip_p)
     cv = (u=cv_u, p=cv_p)   # Create NamedTuple
 
@@ -113,39 +105,35 @@ function FerriteAssembly.element_routine!(
     )
     cellvalues_u = cv[:u]
     cellvalues_p = cv[:p]
-    n_basefuncs_u = getnbasefunctions(cellvalues_u)
-    n_basefuncs_p = getnbasefunctions(cellvalues_p)
+
     ## Create views of the different fields
     udofs = dof_range(dh_fh, :u)
     pdofs = dof_range(dh_fh, :p)
-    Ke_uu = @view Ke[udofs,udofs]
-    Ke_pu = @view Ke[pdofs,udofs]
-    Ke_pp = @view Ke[pdofs,pdofs]
 
     ## Extract cached gradients
     ∇Nu_sym_dev = FA.get_cache(buffer)
 
     ## We only assemble lower half triangle of the stiffness matrix and then symmetrize it.
     for q_point in 1:getnquadpoints(cellvalues_u)
-        for i in 1:n_basefuncs_u
+        for i in 1:length(udofs)
             ∇Nu_sym_dev[i] = dev(symmetric(shape_gradient(cellvalues_u, q_point, i)))
         end
         dΩ = getdetJdV(cellvalues_u, q_point)
-        for i in 1:n_basefuncs_u
-            for j in 1:i
-                Ke_uu[i,j] += 2 * mp.G * ∇Nu_sym_dev[i] ⊡ ∇Nu_sym_dev[j] * dΩ
+        for (i_u, i) in enumerate(udofs)
+            for (j_u, j) in enumerate(udofs[1:i_u])
+                Ke[i,j] += 2 * mp.G * ∇Nu_sym_dev[i_u] ⊡ ∇Nu_sym_dev[j_u] * dΩ
             end
         end
 
-        for i in 1:n_basefuncs_p
-            δNp = shape_value(cellvalues_p, q_point, i)
-            for j in 1:n_basefuncs_u
-                divδNu = shape_divergence(cellvalues_u, q_point, j)
-                Ke_pu[i,j] += -δNp * divδNu * dΩ
+        for (i_p, i) in enumerate(pdofs)
+            δNp = shape_value(cellvalues_p, q_point, i_p)
+            for (j_u, j) in enumerate(udofs)
+                divδNu = shape_divergence(cellvalues_u, q_point, j_u)
+                Ke[i,j] += -δNp * divδNu * dΩ
             end
-            for j in 1:i
-                Np = shape_value(cellvalues_p, q_point, j)
-                Ke_pp[i,j] += - 1/mp.K * δNp * Np * dΩ
+            for (j_p, j) in enumerate(pdofs[1:i_p])
+                Np = shape_value(cellvalues_p, q_point, j_p)
+                Ke[i,j] += - 1/mp.K * δNp * Np * dΩ
             end
         end
     end
@@ -166,6 +154,7 @@ struct PostProcessing
 end
 
 function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+    step == 1 && return nothing # We don't want to save the initial conditions. 
     dh = FP.getdh(p)
     vtk_grid(post.vtk_file, dh) do vtkfile
         vtk_point_data(vtkfile, dh, FP.getunknowns(p))
