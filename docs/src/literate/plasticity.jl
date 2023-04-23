@@ -27,11 +27,14 @@ include("J2Plasticity.jl");
 # included in FerriteProblems, see `src/MaterialModelsBase.jl`.
 
 # ## Problem definition
-# We first create the problem's definition
-
-traction_function(t) = Vec{3}((0.0, 0.0, t*1.e7)) # N/m² 
-traction_function(x, t, n) =  traction_function(t)  
-
+# We first create the problem's definition. 
+# To be able to save the results using JLD2, we cannot use anonymous functions,
+# so a struct for the ramping is created instead:
+struct VectorRamp{dim,T}<:Function
+    ramp::Vec{dim,T}
+end
+(vr::VectorRamp)(x, t, n) = t*vr.ramp
+const traction_function = VectorRamp(Vec(0.0, 0.0, 1.e7))
 function setup_problem_definition()
     ## Define material properties ("J2Plasticity.jl" file)
     material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
@@ -86,7 +89,7 @@ PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     ## p::FerriteProblem
     ## First, we save some values directly in the `post` struct
-    push!(post.tmag, traction_function(FP.gettime(p))[3])
+    push!(post.tmag, traction_function(zero(Vec{3}), FP.gettime(p), zero(Vec{3}))[3])
     push!(post.umag, maximum(abs, FP.getunknowns(p)))
 
     ## Second, we save some results to file
