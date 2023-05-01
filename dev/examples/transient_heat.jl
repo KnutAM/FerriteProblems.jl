@@ -2,13 +2,13 @@ using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
 import FerriteProblems as FP
 import FerriteAssembly as FA
 
-Base.@kwdef struct FicksLaw{T}
+Base.@kwdef struct FourierMaterial{T}
     k::T=1.0e-3    # Thermal conductivity
     f::T=5.0e-1    # Constant heat source
 end
 
 function FerriteAssembly.element_routine!(
-    Ke, re, state, ue, m::FicksLaw, cellvalues, dh_fh, Δt, buffer
+    Ke, re, state, ue, m::FourierMaterial, cellvalues, dh_fh, Δt, buffer
     )
     ue_old = FA.get_aeold(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
@@ -54,7 +54,7 @@ function create_definition()
     close!(ch)
 
     # Create and return the `FEDefinition`
-    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FicksLaw())
+    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FourierMaterial())
 end;
 
 struct PostProcessing{PVD}
