@@ -68,34 +68,35 @@ for the cells in `getcellset(dh,key)`.
 If `MixedDofHandler`, then `initialstate[key]::NTuple{N,<:Dict{Int}}`, 
 and if `DofHandler`, then `initialstate[key]::Dict{Int}`
 """
-struct FEDefinition{DH,CH,NH,CV,M,BL,ST,IC,CC,COLOR}
+struct FEDefinition{DH,CH,NH,CC}
     # FE-handlers
     dh::DH  # DofHandler/MixedDofHandler
     ch::CH  # ConstraintHandler
     nh::NH  # NeumannHandler
-    # Items related to each cell type in the grid
-    # If multiple cell types, these should be tuples
-    cv::CV  # cellvalues
-    m::M    # material
-    bl::BL  # body loads/source terms
-    # Initial values
-    ic::IC  # NamedTuple: (fieldname=f(x),)
-    initialstate::ST
     # Convergence criterion
-    cc::CC   
-    # Threaded assembly if colors!=nothing
-    colors::COLOR
+    convergence_criterion::CC
+    # For construction of FEBuffer, should not be used for performance critical code
+    initial_conditions::NamedTuple  # NamedTuple: (fieldname=f(x),)
+    autodiffbuffer::Val
+    threading::Val
+    domains::Union{<:AssemblyDomain, <:Vector{<:AssemblyDomain}}
 end
+_extract_dofhandler(domain::AssemblyDomain) = domain.sdh.dh
+_extract_dofhandler(domains::Vector{<:AssemblyDomain}) = domains[1].sdh.dh
+function FEDefinition(domain::Union{AssemblyDomain, Vector{<:AssemblyDomain}}; 
+        ch, nh=NeumannHandler(_extract_dofhandler(domain)),
+        convergence_criterion=AbsoluteResidual(), initial_conditions=NamedTuple(), 
+        autodiffbuffer=Val(false), threading=Val(false)
+        )
+    dh = _extract_dofhandler(domain)
+    return FEDefinition(dh, ch, nh, convergence_criterion, initial_conditions, autodiffbuffer, threading, domain)
+end
+# Constructor without creating AssemblyDomain first, used for single domains
 function FEDefinition(;
-    dh, ch, cv, m,          # Required for all simulations
-    nh=NeumannHandler(dh),  # Can be just an empty handler
-    bl=nothing,
-    ic=(),
-    initialstate=_create_states(dh,m,cv,ic),
-    cc=AbsoluteResidual(),
-    colors=nothing
-    )
-    return FEDefinition(dh, ch, nh, cv, m, bl, ic, initialstate, cc, colors)
+    dh, ch, material, cellvalues, # Required for all simulations
+    user_data=nothing, kwargs...)
+    domain = AssemblyDomain("full", dh, material, cellvalues; user_data=user_data)
+    return FEDefinition(domain; ch=ch, kwargs...)
 end
 
 # Note: The following functions are also overloaded for the entire ::FerriteProblem,
@@ -120,78 +121,3 @@ getch(def::FEDefinition) = def.ch
 Get the `NeumannHandler` from the `FerriteProblem`
 """
 getnh(def::FEDefinition) = def.nh
-
-"""
-    FerriteProblems.getcv(p::FerriteProblem)
-
-Get the cell values from the `FerriteProblem`. 
-Note that this could also be a `Tuple` or `NamedTuple` depending on 
-what was initially given to `FEDefinition`
-"""
-getcv(def::FEDefinition) = def.cv
-
-"""
-    FerriteProblems.getmaterial(p::FerriteProblem)
-
-Get the material from the `FerriteProblem`
-"""
-getmaterial(def::FEDefinition) = def.m
-
-"""
-    FerriteProblems.getbodyload(p::FerriteProblem)
-
-Get the bodyload given to the `FerriteProblem`
-"""
-getbodyload(def::FEDefinition) = def.bl
-
-
-# Material Cache, default to nothing
-"""
-    FerriteProblems.allocate_material_cache(material, cellvalues)
-
-In case the material requires a cache to be available during the element routine,
-this function can be overloaded for the specific material to define such a cache
-to be included in the `FerriteAssembly.CellBuffer`
-"""
-allocate_material_cache(args...) = nothing
-
-# Top level call from definition
-allocate_material_cache(def::FEDefinition) = allocate_material_cache(getmaterial(def), getcv(def))
-
-# Multiple materials
-function allocate_material_cache(materials::Dict, cellvalues)
-    mtrl_keys = keys(materials)
-    cv_ = FerriteAssembly._makedict(cellvalues, mtrl_keys)
-    return Dict(key=allocate_material_cache(material[key], cv_[key]) for key in mtrl_keys)
-end
-
-# MixedDofHandler
-function allocate_material_cache(materials::Tuple, cellvalues)
-    cv_ = FerriteAssembly._maketuple(cellvalues, length(materials))
-    return map(allocate_material_cache, materials, cv_)
-end
-
-"""
-    _create_states(dh::AbstractDofHandler, material, cellvalues, initial_conditions)
-
-Create the state variables by calling `FerriteAssembly.create_states` after calculating 
-the degree of freedom values with `Ferrite.jl`'s apply_analytical! and the 
-`initial_conditions` input.  
-"""
-function _create_states(dh, material, cellvalues, initial_conditions)
-    a = zeros(ndofs(dh))
-    if length(initial_conditions) > 0
-        foreach(ic->apply_analytical!(a, dh, ic[1], ic[2]), pairs(initial_conditions))
-    end
-    create_states(dh, material, cellvalues, a)
-end
-
-"""
-    dothreaded(def::FEDefinition)
-
-Trait-based dispatch to determine if threaded assembly should be used.
-Returns a `Val{t::Bool}`. 
-"""
-dothreaded(def::FEDefinition) = _dothreaded(def.colors)
-_dothreaded(::Nothing) = Val{false}()
-_dothreaded(::Any) = Val{true}()

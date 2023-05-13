@@ -4,57 +4,61 @@
 A buffer to hold all values that are required to simulate, 
 but that are uniqely defined from the simulation definition
 """
-mutable struct FEBuffer{T,KT<:AbstractMatrix{T},CB,ST,TS} # internal 
+mutable struct FEBuffer{T,KT<:AbstractMatrix{T},AB,ST,TS} # internal 
     const K::KT
     const x::Vector{T}
     const r::Vector{T}
     const f::Vector{T}
     const xold::Vector{T}
-    const cellbuffer::CB
-    const state::ST
-    const old_state::ST
+    const assembly_buffer::AB   # Buffer from FerriteAssembly.setup_assembly
+    const state::ST             # Also following output 
+    const old_state::ST         # from setup_assembly
     time::T
     old_time::T
     const tolscaling::TS
 end
 
-"""
-    cellbuffertype(def)
-
-By default, `cellbuffertype(::Any) = CellBuffer`. 
-However, if you are using the automatic differentiation, 
-much better assembly speed can be achieved by defining
-```
-FerriteProblems.cellbuffertype(::FEDefinition) = AutoDiffCellBuffer
-```
-In this case, any defined `element_routine!` should 
-use `getCellBuffer(buffer)` to get a `CellBuffer` instead 
-of `AutoDiffCellBuffer`. 
-This is not necessary in `element_residual!`
-"""
-cellbuffertype(::Any) = CellBuffer
-
-# makecellbuffer could also be used to use a custom `AbstractCellBuffer`
-makecellbuffer(def) = makecellbuffer(def, dothreaded(def), cellbuffertype(def))
-makecellbuffer(def, threaded::Val{false}, CB::Type{<:CellBuffer}) = setup_cellbuffer(getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
-makecellbuffer(def, threaded::Val{false}, CB::Type{<:AutoDiffCellBuffer}) = setup_ad_cellbuffer(def.initialstate, getdh(def), getcv(def), getmaterial(def), getbodyload(def), allocate_material_cache(def))
-makecellbuffer(def, threaded::Val{true}, CB) = create_threaded_CellBuffers(makecellbuffer(def, Val{false}(), CB))
-
 function FEBuffer(def::FEDefinition)
     n = ndofs(getdh(def))
     K = create_sparsity_pattern(getdh(def))
-    x, r, f = (zeros(n) for _ in 1:3)
-    foreach(ic->apply_analytical!(x, getdh(def), ic[1], ic[2]), pairs(def.ic))
+    x, r, f = zeros.((n,n,n))
+    ic = def.initial_conditions # ::NamedTuple 
+    foreach((field_name, fun)->apply_analytical!(x, getdh(def), field_name, fun), keys(ic), values(ic))
     xold = deepcopy(x)
-    cellbuffer = makecellbuffer(def)
-    state = deepcopy(def.initialstate)
-    old_state = deepcopy(def.initialstate)
+    buffer, new_state, old_state = _setup_assembly(def, def.domains; a=x)
     time = 0.0
     old_time = 0.0
-    return FEBuffer(K, x, r, f, xold, cellbuffer, state, old_state, time, old_time, TolScaling(def.cc, def))
+    tol_scaling = TolScaling(def.convergence_criterion, def)
+    return FEBuffer(K, x, r, f, xold, buffer, new_state, old_state, time, old_time, tol_scaling)
+end
+
+function _setup_assembly(def::FEDefinition, d::AssemblyDomain; a)
+    return setup_assembly(d.sdh, d.material, d.cellvalues; 
+        a=a, threading=def.threading, autodiffbuffer=def.autodiffbuffer,
+        cellset=d.cellset, colors=d.colors, user_data=d.user_data
+        )
+end
+function _setup_assembly(def::FEDefinition, d::Vector{<:AssemblyDomain}; a)
+    return setup_assembly(d; a=a, threading=def.threading, autodiffbuffer=def.autodiffbuffer)
 end
 
 # Standard get functions
+getassemblybuffer(b::FEBuffer) = b.assembly_buffer
+"""
+    FerriteProblems.get_material(p::FerriteProblem)
+    FerriteProblems.get_material(p::FerriteProblem, domain_name::String)
+
+Get the material in `p`. For multiple domains, it is necessary to give the `domain_name`
+for where to get the material. Note that this is type-unstable and should be avoided in 
+performance-critical code sections. This function belongs to `FerriteAssembly.jl`, 
+but can be accessed via `FerriteProblems.get_material`.
+"""
+FerriteAssembly.get_material(b::FEBuffer{<:Any,<:Any,<:FerriteAssembly.AbstractDomainBuffer}) = get_material(getassemblybuffer(b))
+FerriteAssembly.get_material(b::FEBuffer{<:Any,<:Any,<:Dict{String}}, name::String) = get_material(getassemblybuffer(b), name)
+function FerriteAssembly.get_material(::FEBuffer{<:Any,<:Any,<:Dict{String}})
+    throw(ArgumentError("get_material requires the domain name for multiple domain simulations"))
+end
+
 """
     FerriteProblems.getjacobian(p::FerriteProblem)
 
@@ -62,7 +66,7 @@ Get the current jacobian matrix from `p`.
 Note that this function belongs to `FESolvers.jl`,
 but can be accessed via `FerriteProblems.getjacobian`
 """
-getjacobian(b::FEBuffer) = b.K
+FESolvers.getjacobian(b::FEBuffer) = b.K
 
 """
     FerriteProblems.getunknowns(p::FerriteProblem)
@@ -71,7 +75,7 @@ Get the current vector of unknowns from `p`.
 Note that this function belongs to `FESolvers.jl`,
 but can be accessed via `FerriteProblems.getunknowns`
 """
-getunknowns(b::FEBuffer) = b.x
+FESolvers.getunknowns(b::FEBuffer) = b.x
 
 """
     FerriteProblems.getresidual(p::FerriteProblem)
@@ -80,7 +84,7 @@ Get the current residual vector from `p`.
 Note that this function belongs to `FESolvers.jl`,
 but can be accessed via `FerriteProblems.getresidual`
 """
-getresidual(b::FEBuffer) = b.r
+FESolvers.getresidual(b::FEBuffer) = b.r
 
 """
     FerriteProblems.getneumannforce(p::FerriteProblem)
@@ -91,13 +95,6 @@ does not include external forces added during the
 cell assembly; only forces added with the `NeumannHandler`
 """
 getneumannforce(b::FEBuffer) = b.f 
-
-"""
-    FerriteProblems.getcellbuffer(p::FerriteProblem)
-
-Get the cell buffers used during the assembly.
-"""
-getcellbuffer(b::FEBuffer) = b.cellbuffer   # Internal
 
 """
     FerriteProblems.get_tolerance_scaling(p::FerriteProblem)
@@ -138,44 +135,6 @@ getstate(b::FEBuffer) = b.state
 Get the state variables from the previously converged step
 """
 getoldstate(b::FEBuffer) = b.old_state
-
-"""
-    FerriteProblems.copy_states!(to, from)
-
-Perform a "`deepcopy!`" of states in `from` into `to`.
-"""
-copy_states!(to::Tuple, from::Tuple) = copy_states!.(to, from)  # internal
-function copy_states!(to::T, from::T) where T<:Vector{<:Vector}
-    for (toval, fromval) in zip(to, from)
-        copy_states!(toval, fromval)
-    end
-end
-function copy_states!(to::T, from::T) where T<:Dict{<:Union{Int,String},<:Vector}
-    for (key, fromval) in from
-        copy_states!(to[key], fromval)
-    end
-end
-copy_states!(::T, ::T) where T<:Union{Vector{Nothing},Dict{Int,Nothing}} = nothing 
-
-@inline copy_states!(to::T, from::T) where T<:Vector{ET} where ET = copy_states!(Val{isbitstype(ET)}(), to, from)
-@inline copy_states!(::Val{true}, to::Vector, from::Vector) = copy!(to,from)
-@inline copy_states!(::Val{false}, to::Vector, from::Vector) = copy!(to,deepcopy(from))
-
-"""
-    FerriteProblems.update_states!(p::FerriteProblem)
-
-Update the "old" state variables to the current values.
-Called after convergence
-"""
-update_states!(b::FEBuffer) = copy_states!(b.old_state, getstate(b)) # internal
-
-"""
-    FerriteProblems.reset_states!(p::FerriteProblem)
-
-Reset the current state variables to the old state values. 
-Called after each solution iteration unless the solution has converged. 
-"""
-reset_states!(b::FEBuffer) = copy_states!(b.state, getoldstate(b))  # internal
 
 # Time
 """

@@ -1,7 +1,7 @@
 name = "FerriteProblems"
 uuid = "e7aa30d1-f8c7-4c87-b6be-97e395ec50ad"
 authors = ["Knut Andreas Meyer and contributors"]
-version = "0.1.6"
+version = "0.2.0"
 
 [deps]
 FESolvers = "79314e9b-2e6f-4d6d-a72d-515aa2604984"
@@ -15,7 +15,7 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
 julia = "1.8"
-FerriteAssembly = "0.2"
+FerriteAssembly = "0.3"
 FESolvers = "0.2"
 Ferrite = "0.3.12"
 

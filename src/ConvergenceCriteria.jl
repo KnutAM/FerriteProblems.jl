@@ -12,7 +12,7 @@ abstract type ConvergenceCriterion end
 
 The `TolScaling` type contains the `criterion` that determines how to scale the residuals to determine 
 convergence. The constructor is specialized on `typeof(criterion)`, creating the following fields:
-* `assemscaling`: Used in `FerriteAssembly.doassemble!` to give potential scaling contribution based on each element's residual
+* `assemscaling`: `scaling` to be used by `FerriteAssembly` to give potential scaling contribution based on each element's residual
 * `buffer`: Used to pre-calculate values, such as dof-ranges for each field that is used when calculating the convergence measure. 
 """
 struct TolScaling{C,S,B}
@@ -23,22 +23,12 @@ end
 TolScaling(criterion, def) = TolScaling(criterion, make_assemscaling(criterion, def), nothing)
 
 """
-    make_assemscaling(criterion, def, threaded::Val{false})
+    make_assemscaling(criterion, def)
 
-Create the actual assemscaling for the given `criterion`.
-
-    make_assemscaling(criterion, def, threaded::Val{true})
-
-If `threaded::Val{true}`, then call `make_assemscaling(criterion, def, ::Val{false})` 
-for each thread to support threaded assembly. Note that the function has a definition 
-`make_assemscaling(criterion,def)=make_assemscaling(criterion,def,dothreaded(def))` to simplify calling it.
-If required, a `criterion` should overload `make_assemscaling(criterion,def,::Val{false})`.
+Create the `scaling` for use in `FerriteAssembly` if required by the given `criterion`.
 The default, if not overloaded, returns `nothing`. 
-That suffices if nothing needs to be calculated for each cell during assembly. 
 """
-make_assemscaling(criterion, def) = make_assemscaling(criterion, def, dothreaded(def))
-make_assemscaling(::Any, _, ::Val{false}) = nothing
-make_assemscaling(criterion, def, ::Val{true}) = create_threaded_scalings(make_assemscaling(criterion, def, Val{false}()))
+make_assemscaling(criterion, def) = FerriteAssembly.NoScaling()
 
 """
     FESolvers.calculate_convergence_measure(::ConvergenceCriterion, scaling::TolScaling, r::Vector, Δa, iter, p::FerriteProblem)
@@ -87,7 +77,7 @@ struct RelativeResidualElementScaling{T,F<:Union{AbstractFloat,Dict{Symbol},Name
 end 
 RelativeResidualElementScaling(;p=2, minfactors=eps()) = RelativeResidualElementScaling(p, minfactors)
 
-make_assemscaling(criterion::RelativeResidualElementScaling, def, ::Val{false}) = ElementResidualScaling(getdh(def), criterion.p)
+make_assemscaling(criterion::RelativeResidualElementScaling, def) = ElementResidualScaling(getdh(def), criterion.p)
 
 function TolScaling(criterion::RelativeResidualElementScaling, def)
     dh = getdh(def)
@@ -99,7 +89,7 @@ end
 
 function FESolvers.calculate_convergence_measure(cc::RelativeResidualElementScaling, ts, r, args...)
     val = zero(eltype(r))
-    factors = sum(ts.assemscaling).factors
+    factors = ts.assemscaling.factors
     getminfactor(minfactors, args...) = minfactors
     getminfactor(minfactors::Union{Dict{Symbol},NamedTuple}, fieldname::Symbol) = minfactors[fieldname]
     minfactors = cc.minfactors
