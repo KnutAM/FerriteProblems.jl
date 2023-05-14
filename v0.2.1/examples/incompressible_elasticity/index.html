@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Incompressible Elasticity · FerriteProblems.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://KnutAM.github.io/FerriteProblems.jl/examples/incompressible_elasticity/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteProblems.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../plasticity/">Plasticity</a></li><li><a class="tocitem" href="../io/">IO: Saving and loading simulations</a></li><li><a class="tocitem" href="../transient_heat/">Linear Time Dependent Problem</a></li><li class="is-active"><a class="tocitem" href>Incompressible Elasticity</a><ul class="internal"><li><a class="tocitem" href="#Problem-setup"><span>Problem setup</span></a></li><li><a class="tocitem" href="#Physics-(element-routine)"><span>Physics (element routine)</span></a></li><li><a class="tocitem" href="#Postprocessing"><span>Postprocessing</span></a></li><li><a class="tocitem" href="#Solving-the-problem"><span>Solving the problem</span></a></li><li><a class="tocitem" href="#incompressible_elasticity-plain-program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../porous_media/">Porous media</a></li></ul></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Incompressible Elasticity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Incompressible Elasticity</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/KnutAM/FerriteProblems.jl/blob/main/docs/src/literate/incompressible_elasticity.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Incompressible-Elasticity"><a class="docs-heading-anchor" href="#Incompressible-Elasticity">Incompressible Elasticity</a><a id="Incompressible-Elasticity-1"></a><a class="docs-heading-anchor-permalink" href="#Incompressible-Elasticity" title="Permalink"></a></h1><p>This example is the adoption of <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/examples/incompressible_elasticity/"><code>Ferrite.jl</code>s example</a> To adapt, we make a few changes, specifically that we don&#39;t use BlockArrays</p><p>The full code, without comments, can be found in the next <a href="#incompressible_elasticity-plain-program">section</a>.</p><pre><code class="language-julia hljs">using Ferrite
+using FerriteNeumann, FerriteAssembly, FerriteProblems
+using FESolvers
+import FerriteProblems as FP
+import FerriteAssembly as FA</code></pre><h2 id="Problem-setup"><a class="docs-heading-anchor" href="#Problem-setup">Problem setup</a><a id="Problem-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-setup" title="Permalink"></a></h2><p>First we generate a simple grid, specifying the 4 corners of Cooks membrane.</p><pre><code class="language-julia hljs">function create_cook_grid(nx, ny)
+    corners = [Vec{2}((0.0,   0.0)),
+               Vec{2}((48.0, 44.0)),
+               Vec{2}((48.0, 60.0)),
+               Vec{2}((0.0,  44.0))]
+    grid = generate_grid(Triangle, (nx, ny), corners);
+    # facesets for boundary conditions
+    addfaceset!(grid, &quot;clamped&quot;, x -&gt; norm(x[1]) ≈ 0.0);
+    addfaceset!(grid, &quot;traction&quot;, x -&gt; norm(x[1]) ≈ 48.0);
+    return grid
+end;</code></pre><p>Next we define a function to set up our cell- and facevalues.</p><pre><code class="language-julia hljs">function create_values(interpolation_u, interpolation_p)
+    # quadrature rules
+    qr      = QuadratureRule{2,RefTetrahedron}(3)
+    face_qr = QuadratureRule{1,RefTetrahedron}(3)
+
+    # geometric interpolation
+    interpolation_geom = Lagrange{2,RefTetrahedron,1}()
+
+    # cell and facevalues for u
+    cellvalues_u = CellVectorValues(qr, interpolation_u, interpolation_geom)
+    facevalues_u = FaceVectorValues(face_qr, interpolation_u, interpolation_geom)
+
+    # cellvalues for p
+    cellvalues_p = CellScalarValues(qr, interpolation_p, interpolation_geom)
+
+    return cellvalues_u, cellvalues_p, facevalues_u
+end;</code></pre><p>We create a DofHandler, with two fields, <code>:u</code> and <code>:p</code>, with possibly different interpolations</p><pre><code class="language-julia hljs">function create_dofhandler(grid, ipu, ipp)
+    dh = DofHandler(grid)
+    push!(dh, :u, 2, ipu) # displacement
+    push!(dh, :p, 1, ipp) # pressure
+    close!(dh)
+    return dh
+end;</code></pre><p>The material is linear elastic, which is here specified by the shear and bulk moduli</p><pre><code class="language-julia hljs">struct LinearElasticity{T}
+    G::T
+    K::T
+end
+function LinearElasticity(;Emod, ν)
+    Gmod = Emod / 2(1 + ν)
+    Kmod = Emod * ν / ((1+ν) * (1-2ν))
+    return LinearElasticity(Gmod, Kmod)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Main.LinearElasticity</code></pre><p>Define a cache for the material, as used in the original example</p><pre><code class="language-julia hljs">function FerriteAssembly.allocate_cell_cache(::LinearElasticity, cv::NamedTuple)
+    cellvalues_u = cv[:u]
+    return collect([symmetric(shape_gradient(cellvalues_u, 1, i)) for i in 1:getnbasefunctions(cellvalues_u)])
+end
+
+function create_definition(ν, ip_u, ip_p)
+    grid = create_cook_grid(50, 50)
+    dh = create_dofhandler(grid, ip_u, ip_p)
+    ch = ConstraintHandler(dh)
+    add!(ch, Dirichlet(:u, getfaceset(dh.grid, &quot;clamped&quot;), Returns(zero(Vec{2}))))
+    close!(ch)
+    update!(ch, 0.0)
+
+    cv_u, cv_p, fv = create_values(ip_u, ip_p)
+    cv = (u=cv_u, p=cv_p)   # Create NamedTuple
+
+    nh = NeumannHandler(dh)
+    add!(nh, Neumann(:u, fv, getfaceset(grid, &quot;traction&quot;), (x,t,n)-&gt;Vec{2}((0.0, 1/16))))
+
+    m = LinearElasticity(;Emod=1.0, ν=ν)
+
+    # Create and return the `FEDefinition`
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=m)
+end;</code></pre><h2 id="Physics-(element-routine)"><a class="docs-heading-anchor" href="#Physics-(element-routine)">Physics (element routine)</a><a id="Physics-(element-routine)-1"></a><a class="docs-heading-anchor-permalink" href="#Physics-(element-routine)" title="Permalink"></a></h2><p>We define the element according to <code>FerriteAssembly</code>, and without any Neumann contributions. We restrict this element to only work with <code>FESolvers.LinearProblemSolver</code> by not including the internal forces in residual. Since the problem results in a symmetric matrix we choose to only assemble the lower part, and then symmetrize it after the loop over the quadrature points.</p><pre><code class="language-julia hljs">function FerriteAssembly.element_routine!(
+    Ke, re, state, ue, mp::LinearElasticity, cv::NamedTuple, buffer
+    )
+    cellvalues_u = cv[:u]
+    cellvalues_p = cv[:p]
+
+    # Get the local indices for each field
+    udofs = dof_range(buffer, :u)
+    pdofs = dof_range(buffer, :p)
+
+    # Extract cached gradients
+    ∇Nu_sym_dev = FA.get_cache(buffer)
+
+    # We only assemble lower half triangle of the stiffness matrix and then symmetrize it.
+    for q_point in 1:getnquadpoints(cellvalues_u)
+        for i in 1:length(udofs)
+            ∇Nu_sym_dev[i] = dev(symmetric(shape_gradient(cellvalues_u, q_point, i)))
+        end
+        dΩ = getdetJdV(cellvalues_u, q_point)
+        for (i_u, i) in enumerate(udofs)
+            for (j_u, j) in enumerate(udofs[1:i_u])
+                Ke[i,j] += 2 * mp.G * ∇Nu_sym_dev[i_u] ⊡ ∇Nu_sym_dev[j_u] * dΩ
+            end
+        end
+
+        for (i_p, i) in enumerate(pdofs)
+            δNp = shape_value(cellvalues_p, q_point, i_p)
+            for (j_u, j) in enumerate(udofs)
+                divδNu = shape_divergence(cellvalues_u, q_point, j_u)
+                Ke[i,j] += -δNp * divδNu * dΩ
+            end
+            for (j_p, j) in enumerate(pdofs[1:i_p])
+                Np = shape_value(cellvalues_p, q_point, j_p)
+                Ke[i,j] += - 1/mp.K * δNp * Np * dΩ
+            end
+        end
+    end
+    symmetrize_lower!(Ke)
+end
+
+function symmetrize_lower!(K)
+    for i in 1:size(K,1)
+        for j in i+1:size(K,1)
+            K[i,j] = K[j,i]
+        end
+    end
+end;</code></pre><h2 id="Postprocessing"><a class="docs-heading-anchor" href="#Postprocessing">Postprocessing</a><a id="Postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing" title="Permalink"></a></h2><pre><code class="language-julia hljs">struct PostProcessing
+    vtk_file::String
+end
+
+function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+    step == 1 &amp;&amp; return nothing # We don&#39;t want to save the initial conditions.
+    dh = FP.getdh(p)
+    vtk_grid(post.vtk_file, dh) do vtkfile
+        vtk_point_data(vtkfile, dh, FP.getunknowns(p))
+    end
+end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><pre><code class="language-julia hljs">function build_problem(ν, ip_u, ip_p)
+    def = create_definition(ν, ip_u, ip_p)
+    ip_u_string = isa(ip_u, Lagrange{2,RefTetrahedron,1}) ? &quot;linear&quot; : &quot;quadratic&quot;
+    post = PostProcessing(&quot;cook_$(ip_u_string)_linear&quot;)
+    return FerriteProblem(def, post)
+end
+
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper([0.0,1.0]))
+ν = 0.4999999
+linear    = Lagrange{2,RefTetrahedron,1}()
+quadratic = Lagrange{2,RefTetrahedron,2}()
+p1 = build_problem(ν, linear, linear)
+p2 = build_problem(ν, quadratic, linear)
+solve_problem!(p1, solver)
+solve_problem!(p2, solver)</code></pre><h2 id="incompressible_elasticity-plain-program"><a class="docs-heading-anchor" href="#incompressible_elasticity-plain-program">Plain program</a><a id="incompressible_elasticity-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#incompressible_elasticity-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../incompressible_elasticity.jl"><code>incompressible_elasticity.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite
+using FerriteNeumann, FerriteAssembly, FerriteProblems
+using FESolvers
+import FerriteProblems as FP
+import FerriteAssembly as FA
+
+function create_cook_grid(nx, ny)
+    corners = [Vec{2}((0.0,   0.0)),
+               Vec{2}((48.0, 44.0)),
+               Vec{2}((48.0, 60.0)),
+               Vec{2}((0.0,  44.0))]
+    grid = generate_grid(Triangle, (nx, ny), corners);
+    # facesets for boundary conditions
+    addfaceset!(grid, &quot;clamped&quot;, x -&gt; norm(x[1]) ≈ 0.0);
+    addfaceset!(grid, &quot;traction&quot;, x -&gt; norm(x[1]) ≈ 48.0);
+    return grid
+end;
+
+function create_values(interpolation_u, interpolation_p)
+    # quadrature rules
+    qr      = QuadratureRule{2,RefTetrahedron}(3)
+    face_qr = QuadratureRule{1,RefTetrahedron}(3)
+
+    # geometric interpolation
+    interpolation_geom = Lagrange{2,RefTetrahedron,1}()
+
+    # cell and facevalues for u
+    cellvalues_u = CellVectorValues(qr, interpolation_u, interpolation_geom)
+    facevalues_u = FaceVectorValues(face_qr, interpolation_u, interpolation_geom)
+
+    # cellvalues for p
+    cellvalues_p = CellScalarValues(qr, interpolation_p, interpolation_geom)
+
+    return cellvalues_u, cellvalues_p, facevalues_u
+end;
+
+function create_dofhandler(grid, ipu, ipp)
+    dh = DofHandler(grid)
+    push!(dh, :u, 2, ipu) # displacement
+    push!(dh, :p, 1, ipp) # pressure
+    close!(dh)
+    return dh
+end;
+
+struct LinearElasticity{T}
+    G::T
+    K::T
+end
+function LinearElasticity(;Emod, ν)
+    Gmod = Emod / 2(1 + ν)
+    Kmod = Emod * ν / ((1+ν) * (1-2ν))
+    return LinearElasticity(Gmod, Kmod)
+end
+
+function FerriteAssembly.allocate_cell_cache(::LinearElasticity, cv::NamedTuple)
+    cellvalues_u = cv[:u]
+    return collect([symmetric(shape_gradient(cellvalues_u, 1, i)) for i in 1:getnbasefunctions(cellvalues_u)])
+end
+
+function create_definition(ν, ip_u, ip_p)
+    grid = create_cook_grid(50, 50)
+    dh = create_dofhandler(grid, ip_u, ip_p)
+    ch = ConstraintHandler(dh)
+    add!(ch, Dirichlet(:u, getfaceset(dh.grid, &quot;clamped&quot;), Returns(zero(Vec{2}))))
+    close!(ch)
+    update!(ch, 0.0)
+
+    cv_u, cv_p, fv = create_values(ip_u, ip_p)
+    cv = (u=cv_u, p=cv_p)   # Create NamedTuple
+
+    nh = NeumannHandler(dh)
+    add!(nh, Neumann(:u, fv, getfaceset(grid, &quot;traction&quot;), (x,t,n)-&gt;Vec{2}((0.0, 1/16))))
+
+    m = LinearElasticity(;Emod=1.0, ν=ν)
+
+    # Create and return the `FEDefinition`
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=m)
+end;
+
+function FerriteAssembly.element_routine!(
+    Ke, re, state, ue, mp::LinearElasticity, cv::NamedTuple, buffer
+    )
+    cellvalues_u = cv[:u]
+    cellvalues_p = cv[:p]
+
+    # Get the local indices for each field
+    udofs = dof_range(buffer, :u)
+    pdofs = dof_range(buffer, :p)
+
+    # Extract cached gradients
+    ∇Nu_sym_dev = FA.get_cache(buffer)
+
+    # We only assemble lower half triangle of the stiffness matrix and then symmetrize it.
+    for q_point in 1:getnquadpoints(cellvalues_u)
+        for i in 1:length(udofs)
+            ∇Nu_sym_dev[i] = dev(symmetric(shape_gradient(cellvalues_u, q_point, i)))
+        end
+        dΩ = getdetJdV(cellvalues_u, q_point)
+        for (i_u, i) in enumerate(udofs)
+            for (j_u, j) in enumerate(udofs[1:i_u])
+                Ke[i,j] += 2 * mp.G * ∇Nu_sym_dev[i_u] ⊡ ∇Nu_sym_dev[j_u] * dΩ
+            end
+        end
+
+        for (i_p, i) in enumerate(pdofs)
+            δNp = shape_value(cellvalues_p, q_point, i_p)
+            for (j_u, j) in enumerate(udofs)
+                divδNu = shape_divergence(cellvalues_u, q_point, j_u)
+                Ke[i,j] += -δNp * divδNu * dΩ
+            end
+            for (j_p, j) in enumerate(pdofs[1:i_p])
+                Np = shape_value(cellvalues_p, q_point, j_p)
+                Ke[i,j] += - 1/mp.K * δNp * Np * dΩ
+            end
+        end
+    end
+    symmetrize_lower!(Ke)
+end
+
+function symmetrize_lower!(K)
+    for i in 1:size(K,1)
+        for j in i+1:size(K,1)
+            K[i,j] = K[j,i]
+        end
+    end
+end;
+
+struct PostProcessing
+    vtk_file::String
+end
+
+function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+    step == 1 &amp;&amp; return nothing # We don&#39;t want to save the initial conditions.
+    dh = FP.getdh(p)
+    vtk_grid(post.vtk_file, dh) do vtkfile
+        vtk_point_data(vtkfile, dh, FP.getunknowns(p))
+    end
+end;
+
+function build_problem(ν, ip_u, ip_p)
+    def = create_definition(ν, ip_u, ip_p)
+    ip_u_string = isa(ip_u, Lagrange{2,RefTetrahedron,1}) ? &quot;linear&quot; : &quot;quadratic&quot;
+    post = PostProcessing(&quot;cook_$(ip_u_string)_linear&quot;)
+    return FerriteProblem(def, post)
+end
+
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper([0.0,1.0]))
+ν = 0.4999999
+linear    = Lagrange{2,RefTetrahedron,1}()
+quadratic = Lagrange{2,RefTetrahedron,2}()
+p1 = build_problem(ν, linear, linear)
+p2 = build_problem(ν, quadratic, linear)
+solve_problem!(p1, solver)
+solve_problem!(p2, solver)
+
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../transient_heat/">« Linear Time Dependent Problem</a><a class="docs-footer-nextpage" href="../porous_media/">Porous media »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Sunday 14 May 2023 16:00">Sunday 14 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
