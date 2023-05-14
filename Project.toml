@@ -1,7 +1,7 @@
 name = "FerriteProblems"
 uuid = "e7aa30d1-f8c7-4c87-b6be-97e395ec50ad"
 authors = ["Knut Andreas Meyer and contributors"]
-version = "0.1.6"
+version = "0.2.0"
 
 [deps]
 FESolvers = "79314e9b-2e6f-4d6d-a72d-515aa2604984"
@@ -10,14 +10,13 @@ FerriteAssembly = "fd21fc07-c509-4fe1-9468-19963fd5935d"
 FerriteNeumann = "f0450e97-3c57-4e4a-8020-cfce828c3bbe"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-MaterialModelsBase = "af893363-701d-44dc-8b1e-d9a2c129bfc9"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
-julia = "1.8"
-FerriteAssembly = "0.2"
 FESolvers = "0.2"
 Ferrite = "0.3.12"
+FerriteAssembly = "0.3"
+julia = "1.8"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

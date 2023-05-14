@@ -69,7 +69,7 @@ function LinearElasticity(;Emod, ν)
 end
 
 # Define a cache for the material, as used in the original example
-function FP.allocate_material_cache(::LinearElasticity, cv::NamedTuple)
+function FerriteAssembly.allocate_cell_cache(::LinearElasticity, cv::NamedTuple)
     cellvalues_u = cv[:u]
     return collect([symmetric(shape_gradient(cellvalues_u, 1, i)) for i in 1:getnbasefunctions(cellvalues_u)])
 end
@@ -91,7 +91,7 @@ function create_definition(ν, ip_u, ip_p)
     m = LinearElasticity(;Emod=1.0, ν=ν)
     
     ## Create and return the `FEDefinition`
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=m)
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=m)
 end;
 
 # ## Physics (element routine)
@@ -101,14 +101,14 @@ end;
 # Since the problem results in a symmetric matrix we choose to only assemble the lower part,
 # and then symmetrize it after the loop over the quadrature points.
 function FerriteAssembly.element_routine!(
-    Ke, re, state, ue, mp::LinearElasticity, cv::NamedTuple, dh_fh, Δt, buffer
+    Ke, re, state, ue, mp::LinearElasticity, cv::NamedTuple, buffer
     )
     cellvalues_u = cv[:u]
     cellvalues_p = cv[:p]
 
-    ## Create views of the different fields
-    udofs = dof_range(dh_fh, :u)
-    pdofs = dof_range(dh_fh, :p)
+    ## Get the local indices for each field
+    udofs = dof_range(buffer, :u)
+    pdofs = dof_range(buffer, :p)
 
     ## Extract cached gradients
     ∇Nu_sym_dev = FA.get_cache(buffer)

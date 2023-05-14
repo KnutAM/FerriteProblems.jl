@@ -4,9 +4,8 @@ using Printf
 using FileIO, JLD2
 using Ferrite
 using FESolvers, FerriteAssembly, FerriteNeumann
-using MaterialModelsBase
 import FESolvers: getunknowns, getresidual, getjacobian 
-
+import FerriteAssembly: get_material
 export FerriteProblem, FEDefinition, FerriteIO
 
 include("FerritePRs/include_prs.jl")
@@ -14,15 +13,8 @@ include("ConvergenceCriteria.jl")
 include("FEDefinition.jl")
 include("FEBuffer.jl")
 include("IO.jl")
-include("MaterialModelsBase.jl")
 
-"""
-    FerriteProblem(def::FEDefinition, post, buf::FEBuffer, io::[FerriteIO])
-    
-The main problem type that holds all variables to solve a particular problem 
-using `FESolvers`
-"""
-struct FerriteProblem{POST,DEF<:FEDefinition,BUF<:FEBuffer,IOT}
+struct FerriteProblem{DEF<:FEDefinition,POST,BUF<:FEBuffer,IOT}
     def::DEF
     post::POST
     buf::BUF
@@ -32,20 +24,16 @@ end
 """
     FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
     
-Constructor that makes the minimum required to run simulation. 
-Optional postprocessing and `io::FerriteIO` if desired. 
+Create a FerriteProblem from [`def`](@ref FEDefinition).
+Postprocessing can be added as `post`, see [`FESolvers.postprocess!`](@ref).
+File input/output using `FerriteIO` can be added with `io`. 
+It is possible to give the folder where to save the output (i.e. io::String), 
+or to construct [`FerriteIO`](@ref) with more options directly.
 """
 function FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
     buf = FEBuffer(def)
-    FerriteProblem(def,post,buf,io)
+    FerriteProblem(def, post, buf, io)
 end
-
-"""
-    FerriteProblem(def::FEDefinition, post, savefolder::String)
-
-Constructor with automatic generation of `FerriteIO` by just specifying 
-in which folder data should be saved. 
-"""
 function FerriteProblem(def::FEDefinition, post, savefolder::String)
     FerriteProblem(def, post, FerriteIO(savefolder, def, post))
 end
@@ -74,7 +62,7 @@ function FESolvers.postprocess!(p::FerriteProblem, step, solver)
 end
 
 # FEDefinition: Make functions work directly on `problem`:
-for op = (:getdh, :getch, :getnh, :getcv, :getmaterial, :getbodyload, :dothreaded)
+for op = (:getdh, :getch, :getnh)
     eval(quote
         $op(p::FerriteProblem) = $op(p.def)
     end)
@@ -89,15 +77,19 @@ end
 
 for op = (
     :getoldunknowns, :update_unknowns!, 
-    :getneumannforce, :getcellbuffer, 
+    :getneumannforce,
+    :getmaterial, :getassemblybuffer,
     :get_tolerance_scaling,
-    :gettime, :getoldtime, :update_time!,
-    :getstate, :getoldstate, :update_states!, :reset_states!)
+    :gettime, :getoldtime, :update_time!, :settime!, 
+    :getstate, :getoldstate)
     eval(quote
-        $op(p::FerriteProblem) = $op(p.buf)
+        $op(p::FerriteProblem, args...) = $op(p.buf, args...)
     end)
 end
-settime!(p::FerriteProblem, t) = settime!(p.buf, t)
+
+function FerriteAssembly.update_states!(p::FerriteProblem)
+    update_states!(getoldstate(p), getstate(p))
+end
 
 """
     close_postprocessing(post::MyPostType, p::FerriteProblem)
@@ -144,31 +136,17 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa; kwargs...)
         apply_zero!(Δa, getch(p))
         a .+= Δa
     end
-    reset_states!(p)    # "state = old_state"
-    state = getstate(p)
-    Δt = gettime(p) - getoldtime(p)
+    
     K = FESolvers.getjacobian(p)
     r = FESolvers.getresidual(p)
-    aold = getoldunknowns(p)
     scaling = get_tolerance_scaling(p).assemscaling
-    _doassemble!(K, r, getcellbuffer(p), state, getdh(p), a, aold, Δt, scaling, p, dothreaded(p))
+    assembler = KeReAssembler(K, r; ch=getch(p), apply_zero=true, scaling=scaling)
+    doassemble!(assembler, getstate(p), getassemblybuffer(p); 
+        a=a, aold=getoldunknowns(p), old_states=getoldstate(p), Δt=gettime(p)-getoldtime(p)
+        )
     r .-= getneumannforce(p)
     apply_zero!(K, r, getch(p))
 end
-
-function _doassemble!(K, r, cellbuffer, state, dh, a, aold, Δt, scaling, p, threaded::Val{false})
-    assembler = start_assemble(K, r)
-    reset_scaling!(scaling)
-    FerriteAssembly.doassemble!(assembler, cellbuffer, state, dh, a, aold, Δt, scaling)
-end
-
-function _doassemble!(K, r, cellbuffers, states, dh, a, aold, Δt, scalings, p, threaded::Val{true})
-    colors = p.def.colors
-    assemblers = create_threaded_assemblers(K, r);
-    reset_scaling!.(scalings)
-    doassemble!(assemblers, cellbuffers, states, dh, colors, a, aold, Δt, scalings)
-end
-
 
 function FESolvers.calculate_convergence_measure(p::FerriteProblem, Δa, iter)
     ts = get_tolerance_scaling(p)
