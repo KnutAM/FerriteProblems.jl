@@ -32,13 +32,13 @@ ylabel!(plt1, "umax [mm]")
 
 # The maximum von Mises stress for each step is calculated next. Note that `step` refers 
 # to the count of saved steps, and not the actual simulation steps.
-function get_max_vm_stress(step)
-    states = FP.getipdata(io, step, "state")
-    σ_vm = maximum(cellstates -> maximum(state -> vonMises(state.σ), cellstates), states)
+function get_max_vm_stress(io, step)
+    states = FP.getipdata(io, step, "state") # ::Dict{Int,Vector{J2PlasticityMaterialState}}
+    σ_vm = maximum(cellstates -> maximum(state -> vonMises(state.σ), cellstates), values(states))
     return σ_vm
 end
 
-σ_vm = get_max_vm_stress.(1:length(t_history));
+σ_vm = get_max_vm_stress.((io,), 1:length(t_history));
 
 # Plot the analyzed results
 plt2=plot()
@@ -56,7 +56,7 @@ u = FP.getdofdata(io, step)
 states = FP.getipdata(io, step, "state")
 dh = FP.getdh(def)
 mises_values = zeros(getncells(dh.grid))
-for (el, cell_states) in enumerate(states)
+for (el, cell_states) in pairs(states) # states::Dict{Int}
     for state in cell_states
         mises_values[el] += vonMises(state.σ)
     end

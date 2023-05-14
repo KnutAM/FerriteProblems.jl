@@ -8,8 +8,9 @@ Base.@kwdef struct FourierMaterial{T}
 end
 
 function FerriteAssembly.element_routine!(
-    Ke, re, state, ue, m::FourierMaterial, cellvalues, dh_fh, Δt, buffer
+    Ke, re, state, ue, m::FourierMaterial, cellvalues, buffer
     )
+    Δt = FA.get_time_increment(buffer)
     ue_old = FA.get_aeold(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
@@ -41,7 +42,7 @@ function create_definition()
 
     # **Degrees of freedom**
     # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
-    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
 
     # **Boundary conditions**
     # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
@@ -54,7 +55,7 @@ function create_definition()
     close!(ch)
 
     # Create and return the `FEDefinition`
-    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FourierMaterial())
+    return FEDefinition(;dh=dh, ch=ch, cellvalues=cellvalues, material=FourierMaterial())
 end;
 
 struct PostProcessing{PVD}

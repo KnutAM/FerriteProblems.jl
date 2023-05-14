@@ -34,17 +34,18 @@ function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
     return PoroElastic(elastic, k, α, β)
 end;
 
-function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, dh_fh, Δt, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
     # Setup cellvalues and give easier names
     cv_u = cv[:u]
     cv_p = cv[:p]
     num_u = getnbasefunctions(cv_u)
     num_p = getnbasefunctions(cv_p)
+    Δt = FerriteAssembly.get_time_increment(buffer)
 
     # Assign views to the matrix and vector parts
     ae_old = FerriteAssembly.get_aeold(buffer)
-    udofs = dof_range(dh_fh, :u)
-    pdofs = dof_range(dh_fh, :p)
+    udofs = dof_range(buffer, :u)
+    pdofs = dof_range(buffer, :p)
     ru = @view re[udofs]
     rp = @view re[pdofs]
     ue = @view ae[udofs]
@@ -110,39 +111,53 @@ function create_definition(;t_rise=0.1, p_max=100.0)
 
     # Setup the MixedDofHandler
     dh = MixedDofHandler(grid)
-    push!(dh, FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,"solid3")))
-    push!(dh, FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,"solid4")))
-    push!(dh, FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,"porous3")))
-    push!(dh, FieldHandler([Field(:u, ip4_quad, dim), Field(:p, ip4_lin, 1)], getcellset(grid,"porous4")))
+    fh1 = FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,"solid3"))
+    add!(dh, fh1)
+    fh2 = FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,"solid4"))
+    add!(dh, fh2)
+    fh3 = FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,"porous3"))
+    add!(dh, fh3)
+    fh4 = FieldHandler([Field(:u, ip4_quad, dim), Field(:p, ip4_lin, 1)], getcellset(grid,"porous4"))
+    add!(dh, fh4)
     close!(dh)
 
-    # Setup cellvalues with the same order as the FieldHandlers in the dh
-    # - Linear displacement elements in the solid domain
-    # - Taylor hood (quadratic displacement, linear pressure) and linear geometry in porous domain
-    cv = ( CellVectorValues(qr3, ip3_lin),
-           CellVectorValues(qr4, ip4_lin),
-           (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin)),
-           (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin)) )
+    # Setup the AssemblyDomains
+    # Solid domain with Triangle elements, linear displacement interpolation
+    sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
+    cv1 = CellVectorValues(qr3, ip3_lin)
+    ad1 = AssemblyDomain("solid3", sdh1, Elastic(), cv1)
+
+    # Solid domain with Quadrilateral elements, linear displacement interpolation
+    sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
+    cv2 = CellVectorValues(qr4, ip4_lin)
+    ad2 = AssemblyDomain("solid4", sdh2, Elastic(), cv2)
+
+    # Porous domain with Triangle elements
+    # Taylor hood: (quadratic displacement and linear pressure interpolation)
+    sdh3 = FerriteAssembly.SubDofHandler(dh, fh3)
+    cv3 = (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin))
+    ad3 = AssemblyDomain("porous3", sdh3, PoroElastic(), cv3)
+
+    # Porous domain with Quadrilateral elements
+    # Taylor hood: (quadratic displacement and linear pressure interpolation)
+    sdh4 = FerriteAssembly.SubDofHandler(dh, fh4)
+    cv4 = (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin))
+    ad4 = AssemblyDomain("porous4", sdh4, PoroElastic(), cv4)
 
     # Add boundary conditions
-    # Use `Ferrite.jl` PR427 (temporarily included in FerriteProblems.jl)
-    # to make Dirichlet conditions easier and more general
     ch = ConstraintHandler(dh);
     # Fix bottom in y and sides in x
-    add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), (x, t) -> zero(Vec{1}), [2]))
-    add!(ch, Dirichlet(:u, getfaceset(grid, "sides"), (x,t) -> zero(Vec{1}), [1]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), Returns(0.0), [2]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, "sides"), Returns(0.0), [1]))
     # Zero pressure on top surface
-    add!(ch, Dirichlet(:p, getfaceset(grid, "top"), (x,t) -> 0.0))
+    add!(ch, Dirichlet(:p, getfaceset(grid, "top"), Returns(0.0)))
     close!(ch)
 
     # Add Neumann boundary conditions - normal traction on top
     nh = NeumannHandler(dh);
     add!(nh, Neumann(:u, 2, getfaceset(grid, "top"), (x,t,n) -> -n*clamp(t/t_rise,0,1)*p_max))
 
-    # We then need one material per fieldhandler:
-    materials = (Elastic(), Elastic(), PoroElastic(), PoroElastic())
-
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=materials, cc=FP.RelativeResidualElementScaling())
+    return FEDefinition([ad1, ad2, ad3, ad4]; ch=ch, nh=nh)
 end;
 
 struct PostProcess{PVD}

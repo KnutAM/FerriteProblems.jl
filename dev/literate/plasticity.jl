@@ -22,9 +22,8 @@ include("J2Plasticity.jl");
 # * `J2Plasticity<:AbstractMaterial` material type with the constructor `J2Plasticity(E,ν,σy0,H)`
 # * State variable struct `J2PlasticityMaterialState<:AbstractMaterialState`
 # * The MaterialModelsBase function `initial_material_state` and `material_response`
-# For a single material according to the `MaterialModelsBase` interface, 
-# `FerriteAssembly.element_routine!` and `FerriteAssembly.create_cell_state` are already 
-# included in FerriteProblems, see `src/MaterialModelsBase.jl`.
+# Support for a single material according to the `MaterialModelsBase` interface is supported directly 
+# by `FerriteAssembly.jl`
 
 # ## Problem definition
 # We first create the problem's definition. 
@@ -56,16 +55,10 @@ function setup_problem_definition()
     quad_order = 3
     add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
 
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material)
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=material)
 end;
 
-# For the problem at hand, we need to define the element routine, 
-# following `FerriteAssembly`s interface. This function is almost equivalent to 
-# the `assemble_cell!` in the original example, except that 
-# 1) We don't have to `reinit!` as `FerriteAssembly` does that before calling
-# 2) The traction is handled by `FerriteNeumann` and is not done for each cell
-# For convenience, this element is already implemented for materials of 
-# MaterialModelsBase type `AbstractMaterial`, and we don't need to define it here. 
+# For the problem at hand, `FerriteAssembly.element_routine!` is defined in `FerriteAssembly.jl`.
 
 # ## Setup postprocessing
 # In contrast to the original example, 

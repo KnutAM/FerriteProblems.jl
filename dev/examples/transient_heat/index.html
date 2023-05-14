@@ -5,8 +5,9 @@ import FerriteAssembly as FA</code></pre><h2 id="Physics"><a class="docs-heading
     k::T=1.0e-3    # Thermal conductivity
     f::T=5.0e-1    # Constant heat source
 end</code></pre><p>where we could have defined the heat source using the bodyload type available via the cellbuffer, but it is not necessary for a constant heat source.</p><p>We then define element routine following <code>FerriteAssembly</code></p><pre><code class="language-julia hljs">function FerriteAssembly.element_routine!(
-    Ke, re, state, ue, m::FourierMaterial, cellvalues, dh_fh, Δt, buffer
+    Ke, re, state, ue, m::FourierMaterial, cellvalues, buffer
     )
+    Δt = FA.get_time_increment(buffer)
     ue_old = FA.get_aeold(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
@@ -36,7 +37,7 @@ end;</code></pre><h2 id="Problem-setup"><a class="docs-heading-anchor" href="#Pr
 
     # **Degrees of freedom**
     # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
-    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
 
     # **Boundary conditions**
     # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
@@ -49,7 +50,7 @@ end;</code></pre><h2 id="Problem-setup"><a class="docs-heading-anchor" href="#Pr
     close!(ch)
 
     # Create and return the `FEDefinition`
-    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FourierMaterial())
+    return FEDefinition(;dh=dh, ch=ch, cellvalues=cellvalues, material=FourierMaterial())
 end;</code></pre><h2 id="Postprocessing"><a class="docs-heading-anchor" href="#Postprocessing">Postprocessing</a><a id="Postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing" title="Permalink"></a></h2><p>After defining all the physics and problem setup, we must decide what data to save. In this example, we use the vtk-file exports as in the original example. To this end, we define the custom postprocessing struct</p><pre><code class="language-julia hljs">struct PostProcessing{PVD}
     pvd::PVD
 end
@@ -91,8 +92,9 @@ Base.@kwdef struct FourierMaterial{T}
 end
 
 function FerriteAssembly.element_routine!(
-    Ke, re, state, ue, m::FourierMaterial, cellvalues, dh_fh, Δt, buffer
+    Ke, re, state, ue, m::FourierMaterial, cellvalues, buffer
     )
+    Δt = FA.get_time_increment(buffer)
     ue_old = FA.get_aeold(buffer)
     n_basefuncs = getnbasefunctions(cellvalues)
     for q_point in 1:getnquadpoints(cellvalues)
@@ -124,7 +126,7 @@ function create_definition()
 
     # **Degrees of freedom**
     # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
-    dh = DofHandler(grid); push!(dh, :u, 1); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
 
     # **Boundary conditions**
     # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
@@ -137,7 +139,7 @@ function create_definition()
     close!(ch)
 
     # Create and return the `FEDefinition`
-    return FEDefinition(;dh=dh, ch=ch, cv=cellvalues, m=FourierMaterial())
+    return FEDefinition(;dh=dh, ch=ch, cellvalues=cellvalues, material=FourierMaterial())
 end;
 
 struct PostProcessing{PVD}
@@ -168,4 +170,4 @@ solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTim
 
 solve_problem!(problem, solver);
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« IO: Saving and loading simulations</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Incompressible Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 1 May 2023 16:54">Monday 1 May 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« IO: Saving and loading simulations</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Incompressible Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Sunday 14 May 2023 14:29">Sunday 14 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

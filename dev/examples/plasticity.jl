@@ -31,7 +31,7 @@ function setup_problem_definition()
     quad_order = 3
     add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
 
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=material)
+    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=material)
 end;
 
 struct PlasticityPostProcess{T}

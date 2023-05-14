@@ -49,17 +49,18 @@ end;</code></pre><h3 id="Poroelastic-material"><a class="docs-heading-anchor" hr
 end
 function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
     return PoroElastic(elastic, k, α, β)
-end;</code></pre><p>And then we also have to define the specific element routine which we do by defining the residual and using autodiff to calculate the tangent</p><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, dh_fh, Δt, buffer)
+end;</code></pre><p>And then we also have to define the specific element routine which we do by defining the residual and using autodiff to calculate the tangent</p><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
     # Setup cellvalues and give easier names
     cv_u = cv[:u]
     cv_p = cv[:p]
     num_u = getnbasefunctions(cv_u)
     num_p = getnbasefunctions(cv_p)
+    Δt = FerriteAssembly.get_time_increment(buffer)
 
     # Assign views to the matrix and vector parts
     ae_old = FerriteAssembly.get_aeold(buffer)
-    udofs = dof_range(dh_fh, :u)
-    pdofs = dof_range(dh_fh, :p)
+    udofs = dof_range(buffer, :u)
+    pdofs = dof_range(buffer, :p)
     ru = @view re[udofs]
     rp = @view re[pdofs]
     ue = @view ae[udofs]
@@ -121,39 +122,53 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 
     # Setup the MixedDofHandler
     dh = MixedDofHandler(grid)
-    push!(dh, FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,&quot;solid3&quot;)))
-    push!(dh, FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,&quot;solid4&quot;)))
-    push!(dh, FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,&quot;porous3&quot;)))
-    push!(dh, FieldHandler([Field(:u, ip4_quad, dim), Field(:p, ip4_lin, 1)], getcellset(grid,&quot;porous4&quot;)))
+    fh1 = FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,&quot;solid3&quot;))
+    add!(dh, fh1)
+    fh2 = FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,&quot;solid4&quot;))
+    add!(dh, fh2)
+    fh3 = FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,&quot;porous3&quot;))
+    add!(dh, fh3)
+    fh4 = FieldHandler([Field(:u, ip4_quad, dim), Field(:p, ip4_lin, 1)], getcellset(grid,&quot;porous4&quot;))
+    add!(dh, fh4)
     close!(dh)
 
-    # Setup cellvalues with the same order as the FieldHandlers in the dh
-    # - Linear displacement elements in the solid domain
-    # - Taylor hood (quadratic displacement, linear pressure) and linear geometry in porous domain
-    cv = ( CellVectorValues(qr3, ip3_lin),
-           CellVectorValues(qr4, ip4_lin),
-           (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin)),
-           (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin)) )
+    # Setup the AssemblyDomains
+    # Solid domain with Triangle elements, linear displacement interpolation
+    sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
+    cv1 = CellVectorValues(qr3, ip3_lin)
+    ad1 = AssemblyDomain(&quot;solid3&quot;, sdh1, Elastic(), cv1)
+
+    # Solid domain with Quadrilateral elements, linear displacement interpolation
+    sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
+    cv2 = CellVectorValues(qr4, ip4_lin)
+    ad2 = AssemblyDomain(&quot;solid4&quot;, sdh2, Elastic(), cv2)
+
+    # Porous domain with Triangle elements
+    # Taylor hood: (quadratic displacement and linear pressure interpolation)
+    sdh3 = FerriteAssembly.SubDofHandler(dh, fh3)
+    cv3 = (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin))
+    ad3 = AssemblyDomain(&quot;porous3&quot;, sdh3, PoroElastic(), cv3)
+
+    # Porous domain with Quadrilateral elements
+    # Taylor hood: (quadratic displacement and linear pressure interpolation)
+    sdh4 = FerriteAssembly.SubDofHandler(dh, fh4)
+    cv4 = (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin))
+    ad4 = AssemblyDomain(&quot;porous4&quot;, sdh4, PoroElastic(), cv4)
 
     # Add boundary conditions
-    # Use `Ferrite.jl` PR427 (temporarily included in FerriteProblems.jl)
-    # to make Dirichlet conditions easier and more general
     ch = ConstraintHandler(dh);
     # Fix bottom in y and sides in x
-    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), (x, t) -&gt; zero(Vec{1}), [2]))
-    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;sides&quot;), (x,t) -&gt; zero(Vec{1}), [1]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), Returns(0.0), [2]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;sides&quot;), Returns(0.0), [1]))
     # Zero pressure on top surface
-    add!(ch, Dirichlet(:p, getfaceset(grid, &quot;top&quot;), (x,t) -&gt; 0.0))
+    add!(ch, Dirichlet(:p, getfaceset(grid, &quot;top&quot;), Returns(0.0)))
     close!(ch)
 
     # Add Neumann boundary conditions - normal traction on top
     nh = NeumannHandler(dh);
     add!(nh, Neumann(:u, 2, getfaceset(grid, &quot;top&quot;), (x,t,n) -&gt; -n*clamp(t/t_rise,0,1)*p_max))
 
-    # We then need one material per fieldhandler:
-    materials = (Elastic(), Elastic(), PoroElastic(), PoroElastic())
-
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=materials, cc=FP.RelativeResidualElementScaling())
+    return FEDefinition([ad1, ad2, ad3, ad4]; ch=ch, nh=nh)
 end;</code></pre><h2 id="Postprocessing"><a class="docs-heading-anchor" href="#Postprocessing">Postprocessing</a><a id="Postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Postprocessing" title="Permalink"></a></h2><pre><code class="language-julia hljs">struct PostProcess{PVD}
     pvd::PVD
     filestem::String
@@ -209,17 +224,18 @@ function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
     return PoroElastic(elastic, k, α, β)
 end;
 
-function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, dh_fh, Δt, buffer)
+function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
     # Setup cellvalues and give easier names
     cv_u = cv[:u]
     cv_p = cv[:p]
     num_u = getnbasefunctions(cv_u)
     num_p = getnbasefunctions(cv_p)
+    Δt = FerriteAssembly.get_time_increment(buffer)
 
     # Assign views to the matrix and vector parts
     ae_old = FerriteAssembly.get_aeold(buffer)
-    udofs = dof_range(dh_fh, :u)
-    pdofs = dof_range(dh_fh, :p)
+    udofs = dof_range(buffer, :u)
+    pdofs = dof_range(buffer, :p)
     ru = @view re[udofs]
     rp = @view re[pdofs]
     ue = @view ae[udofs]
@@ -285,39 +301,53 @@ function create_definition(;t_rise=0.1, p_max=100.0)
 
     # Setup the MixedDofHandler
     dh = MixedDofHandler(grid)
-    push!(dh, FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,&quot;solid3&quot;)))
-    push!(dh, FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,&quot;solid4&quot;)))
-    push!(dh, FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,&quot;porous3&quot;)))
-    push!(dh, FieldHandler([Field(:u, ip4_quad, dim), Field(:p, ip4_lin, 1)], getcellset(grid,&quot;porous4&quot;)))
+    fh1 = FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,&quot;solid3&quot;))
+    add!(dh, fh1)
+    fh2 = FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,&quot;solid4&quot;))
+    add!(dh, fh2)
+    fh3 = FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,&quot;porous3&quot;))
+    add!(dh, fh3)
+    fh4 = FieldHandler([Field(:u, ip4_quad, dim), Field(:p, ip4_lin, 1)], getcellset(grid,&quot;porous4&quot;))
+    add!(dh, fh4)
     close!(dh)
 
-    # Setup cellvalues with the same order as the FieldHandlers in the dh
-    # - Linear displacement elements in the solid domain
-    # - Taylor hood (quadratic displacement, linear pressure) and linear geometry in porous domain
-    cv = ( CellVectorValues(qr3, ip3_lin),
-           CellVectorValues(qr4, ip4_lin),
-           (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin)),
-           (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin)) )
+    # Setup the AssemblyDomains
+    # Solid domain with Triangle elements, linear displacement interpolation
+    sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
+    cv1 = CellVectorValues(qr3, ip3_lin)
+    ad1 = AssemblyDomain(&quot;solid3&quot;, sdh1, Elastic(), cv1)
+
+    # Solid domain with Quadrilateral elements, linear displacement interpolation
+    sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
+    cv2 = CellVectorValues(qr4, ip4_lin)
+    ad2 = AssemblyDomain(&quot;solid4&quot;, sdh2, Elastic(), cv2)
+
+    # Porous domain with Triangle elements
+    # Taylor hood: (quadratic displacement and linear pressure interpolation)
+    sdh3 = FerriteAssembly.SubDofHandler(dh, fh3)
+    cv3 = (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin))
+    ad3 = AssemblyDomain(&quot;porous3&quot;, sdh3, PoroElastic(), cv3)
+
+    # Porous domain with Quadrilateral elements
+    # Taylor hood: (quadratic displacement and linear pressure interpolation)
+    sdh4 = FerriteAssembly.SubDofHandler(dh, fh4)
+    cv4 = (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin))
+    ad4 = AssemblyDomain(&quot;porous4&quot;, sdh4, PoroElastic(), cv4)
 
     # Add boundary conditions
-    # Use `Ferrite.jl` PR427 (temporarily included in FerriteProblems.jl)
-    # to make Dirichlet conditions easier and more general
     ch = ConstraintHandler(dh);
     # Fix bottom in y and sides in x
-    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), (x, t) -&gt; zero(Vec{1}), [2]))
-    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;sides&quot;), (x,t) -&gt; zero(Vec{1}), [1]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;bottom&quot;), Returns(0.0), [2]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, &quot;sides&quot;), Returns(0.0), [1]))
     # Zero pressure on top surface
-    add!(ch, Dirichlet(:p, getfaceset(grid, &quot;top&quot;), (x,t) -&gt; 0.0))
+    add!(ch, Dirichlet(:p, getfaceset(grid, &quot;top&quot;), Returns(0.0)))
     close!(ch)
 
     # Add Neumann boundary conditions - normal traction on top
     nh = NeumannHandler(dh);
     add!(nh, Neumann(:u, 2, getfaceset(grid, &quot;top&quot;), (x,t,n) -&gt; -n*clamp(t/t_rise,0,1)*p_max))
 
-    # We then need one material per fieldhandler:
-    materials = (Elastic(), Elastic(), PoroElastic(), PoroElastic())
-
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cv=cv, m=materials, cc=FP.RelativeResidualElementScaling())
+    return FEDefinition([ad1, ad2, ad3, ad4]; ch=ch, nh=nh)
 end;
 
 struct PostProcess{PVD}
@@ -343,4 +373,4 @@ problem = FerriteProblem(create_definition(), PostProcess())
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x-&gt;x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 1 May 2023 16:54">Monday 1 May 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Sunday 14 May 2023 14:29">Sunday 14 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
