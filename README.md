@@ -6,13 +6,12 @@
 
 **Warning:** *This package is experimental and breaking changes are expected*
 
-When using the `FESolvers.jl` package together with `Ferrite.jl`, the user has to specify 
-a `problem` to be solved. The purpose of `FESolvers.jl` is to keep this as general as possible, 
-and not require users to structure their `problem` structs in a certain way. 
+`FESolvers.jl` requires the `Ferrite.jl` user to specify a `problem` to be solved. 
+`FerriteProblems.jl` provides such a `problem::FerriteProblem`.
 
 The `FerriteProblems.jl` package brings together 
-* [`FESolvers.jl`](https://github.com/KnutAM/FESolvers.jl)
 * [`Ferrite.jl`](https://github.com/Ferrite-FEM/Ferrite.jl)
+* [`FESolvers.jl`](https://github.com/KnutAM/FESolvers.jl)
 * [`FerriteAssembly.jl`](https://github.com/KnutAM/FerriteAssembly.jl)
 * [`FerriteNeumann.jl`](https://github.com/KnutAM/FerriteNeumann.jl)
 
