@@ -10,7 +10,7 @@ Create the `FEDefinition` which can later be used to create a complete
         autodiffbuffer=Val(false), threading=Val(false)
         )
 
-**Single domain:** This first definition sets up a single domain simulation 
+This first definition sets up a **single domain** simulation 
 (same `material`, `cellvalues`, interpolations, etc. everywhere). 
 
     FEDefinition(domains::Vector{<:AssemblyDomain}}; ch, 
@@ -20,7 +20,7 @@ Create the `FEDefinition` which can later be used to create a complete
         autodiffbuffer=Val(false), threading=Val(false)
         )
     
-**Multiple domains:** This second definition setups up multi-domain simulations 
+This second definition sets up a **multi-domain** simulation
 by using `FerriteAssembly.jl`'s `AssemblyDomain`. 
 The `dh` used for the default NeumannHandler is extracted from `domains`. 
 
