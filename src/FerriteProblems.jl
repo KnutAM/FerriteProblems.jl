@@ -4,7 +4,6 @@ using Printf
 using FileIO, JLD2
 using Ferrite
 using FESolvers, FerriteAssembly, FerriteNeumann
-using MaterialModelsBase
 import FESolvers: getunknowns, getresidual, getjacobian 
 import FerriteAssembly: get_material
 export FerriteProblem, FEDefinition, FerriteIO
@@ -15,13 +14,7 @@ include("FEDefinition.jl")
 include("FEBuffer.jl")
 include("IO.jl")
 
-"""
-    FerriteProblem(def::FEDefinition, post, buf::FEBuffer, io::[FerriteIO])
-    
-The main problem type that holds all variables to solve a particular problem 
-using `FESolvers`
-"""
-struct FerriteProblem{POST,DEF<:FEDefinition,BUF<:FEBuffer,IOT}
+struct FerriteProblem{DEF<:FEDefinition,POST,BUF<:FEBuffer,IOT}
     def::DEF
     post::POST
     buf::BUF
@@ -31,20 +24,16 @@ end
 """
     FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
     
-Constructor that makes the minimum required to run simulation. 
-Optional postprocessing and `io::FerriteIO` if desired. 
+Create a FerriteProblem from [`def`](@ref FEDefinition).
+Postprocessing can be added as `post`, see [`FESolvers.postprocess!`](@ref).
+File input/output using `FerriteIO` can be added with `io`. 
+It is possible to give the folder where to save the output (i.e. io::String), 
+or to construct [`FerriteIO`](@ref) with more options directly.
 """
 function FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
     buf = FEBuffer(def)
-    FerriteProblem(def,post,buf,io)
+    FerriteProblem(def, post, buf, io)
 end
-
-"""
-    FerriteProblem(def::FEDefinition, post, savefolder::String)
-
-Constructor with automatic generation of `FerriteIO` by just specifying 
-in which folder data should be saved. 
-"""
 function FerriteProblem(def::FEDefinition, post, savefolder::String)
     FerriteProblem(def, post, FerriteIO(savefolder, def, post))
 end
