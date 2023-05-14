@@ -78,7 +78,7 @@ end
 for op = (
     :getoldunknowns, :update_unknowns!, 
     :getneumannforce,
-    :getmaterial, :getassemblybuffer,
+    :get_material, :getassemblybuffer,
     :get_tolerance_scaling,
     :gettime, :getoldtime, :update_time!, :settime!, 
     :getstate, :getoldstate)
