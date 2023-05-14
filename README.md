@@ -16,8 +16,6 @@ The `FerriteProblems.jl` package brings together
 * [`FerriteAssembly.jl`](https://github.com/KnutAM/FerriteAssembly.jl)
 * [`FerriteNeumann.jl`](https://github.com/KnutAM/FerriteNeumann.jl)
 
-For convenience, the package includes the element definition (following `FerriteAssembly.jl`)
-for materials according to [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl).
 
 ## Installation
 Those packages not in the general julia registry are available in [knutamregistry](https://github.com/KnutAM/knutamregistry)
