@@ -118,15 +118,16 @@ addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
 function FESolvers.update_to_next_step!(p::FerriteProblem, time)
     # Update the current time
     settime!(p, time)
+
+    # Apply constraints, including Dirichlet BC
+    update!(getch(p), time)
+    apply!(FESolvers.getunknowns(p), getch(p))
     
     # Apply Neumann BC
     f = getneumannforce(p)
     fill!(f, 0)
     apply!(f, getnh(p), time)
-    
-    # Apply constraints, including Dirichlet BC
-    update!(getch(p), time)
-    apply!(FESolvers.getunknowns(p), getch(p))
+    apply_zero!(f, getch(p)) # Make force zero at constrained dofs (to be compatible with apply local)
 end
 
 function FESolvers.update_problem!(p::FerriteProblem, Δa; kwargs...)
@@ -141,11 +142,10 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa; kwargs...)
     r = FESolvers.getresidual(p)
     scaling = get_tolerance_scaling(p).assemscaling
     assembler = KeReAssembler(K, r; ch=getch(p), apply_zero=true, scaling=scaling)
+    map!(-, r, getneumannforce(p))
     doassemble!(assembler, getstate(p), getassemblybuffer(p); 
         a=a, aold=getoldunknowns(p), old_states=getoldstate(p), Δt=gettime(p)-getoldtime(p)
         )
-    r .-= getneumannforce(p)
-    apply_zero!(K, r, getch(p))
 end
 
 function FESolvers.calculate_convergence_measure(p::FerriteProblem, Δa, iter)
