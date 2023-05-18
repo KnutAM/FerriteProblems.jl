@@ -116,6 +116,17 @@ addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
 # * handle_converged!
 
 function FESolvers.update_to_next_step!(p::FerriteProblem, time)
+    
+    if getoldtime(p) == 0.0
+        K = getjacobian(p)
+        r = getresidual(p)
+        a = getunknowns(p)
+        aold = getoldunknowns(p)
+        buffer = getassemblybuffer(p)
+        assembler = KeReAssembler(K, r; ch=getch(p), apply_zero=true)
+        doassemble!(assembler, getstate(p), buffer; a=a, aold=aold, old_states=getoldstate(p))
+    end # =#
+    last_converged = gettime(p) == getoldtime(p)
     # Update the current time
     settime!(p, time)
 
@@ -128,6 +139,22 @@ function FESolvers.update_to_next_step!(p::FerriteProblem, time)
     fill!(f, 0)
     apply!(f, getnh(p), time)
     apply_zero!(f, getch(p)) # Make force zero at constrained dofs (to be compatible with apply local)
+
+    # Make initial guess based on old stiffness 
+    
+    if last_converged
+        r = getresidual(p)
+        a = getunknowns(p)
+        assembler = ReAssembler(r)
+        map!(-, r, getneumannforce(p))
+        doassemble!(assembler, getstate(p), getassemblybuffer(p); 
+            a=a, aold=getoldunknowns(p), old_states=getoldstate(p), Δt=gettime(p)-getoldtime(p)
+            )
+        minus_Δa = getjacobian(p)\r
+        apply_zero!(minus_Δa, getch(p))
+        a .-= minus_Δa
+    end
+    # =#
 end
 
 function FESolvers.update_problem!(p::FerriteProblem, Δa; kwargs...)
