@@ -75,7 +75,7 @@ struct RelativeResidualElementScaling{T,F<:Union{AbstractFloat,Dict{Symbol},Name
     p::T
     minfactors::F
 end 
-RelativeResidualElementScaling(;p=2, minfactors=eps()) = RelativeResidualElementScaling(p, minfactors)
+RelativeResidualElementScaling(;p=Val(2), minfactors=eps()) = RelativeResidualElementScaling(p, minfactors)
 
 make_assemscaling(criterion::RelativeResidualElementScaling, def) = ElementResidualScaling(getdh(def), criterion.p)
 
