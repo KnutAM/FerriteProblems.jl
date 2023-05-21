@@ -130,7 +130,7 @@ function FESolvers.update_to_next_step!(p::FerriteProblem, time)
     apply_zero!(f, getch(p)) # Make force zero at constrained dofs (to be compatible with apply local)
 end
 
-function FESolvers.update_problem!(p::FerriteProblem, Δa; kwargs...)
+function FESolvers.update_problem!(p::FerriteProblem, Δa; update_residual, update_jacobian)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
     if !isnothing(Δa)
@@ -140,12 +140,19 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa; kwargs...)
     
     K = FESolvers.getjacobian(p)
     r = FESolvers.getresidual(p)
-    scaling = get_tolerance_scaling(p).assemscaling
-    assembler = KeReAssembler(K, r; ch=getch(p), apply_zero=true, scaling=scaling)
+    if update_jacobian # Update both residual and jacobian
+        scaling = get_tolerance_scaling(p).assemscaling
+        assembler = KeReAssembler(K, r; ch=getch(p), apply_zero=true, scaling=scaling)
+    elseif update_residual # update only residual
+        assembler = ReAssembler(r; scaling=get_tolerance_scaling(p).assemscaling)
+    else # Only update a
+        return nothing
+    end
     map!(-, r, getneumannforce(p))
     doassemble!(assembler, getstate(p), getassemblybuffer(p); 
         a=a, aold=getoldunknowns(p), old_states=getoldstate(p), Δt=gettime(p)-getoldtime(p)
         )
+    return nothing
 end
 
 function FESolvers.calculate_convergence_measure(p::FerriteProblem, Δa, iter)
