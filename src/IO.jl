@@ -10,7 +10,6 @@ mutable struct FerriteIO
     const datafiles::Vector{String} # Name of each datafile
     fileobject::Any                 # Current file, empty upon saving
     filenumber::Int                 # Current file in `fileobject`
-    const dof2node::Dict{Symbol, Matrix{Int}} # Output from `reshape_to_nodes(1:ndof)`
 end
 
 """
@@ -36,7 +35,6 @@ function FerriteIO(
     time = T[]
     filesteps = [1,]
     datafiles=String[]
-    dof2node = get_dof2node(def)
     isdir(folder) || mkdir(folder)
     jldsave(joinpath(folder, def_file); def=def)
     _postfile = isnothing(post) ? "" : postfile
@@ -46,7 +44,7 @@ function FerriteIO(
         folder, def_file, _postfile, 
         nsteps_per_file, switchsize, 0,
         time, filesteps, datafiles, 
-        file, 1, dof2node
+        file, 1
         )
 end
 
@@ -353,16 +351,3 @@ function getpost(io::FerriteIO)
     filename = joinpath(io.folder, io.postfile)
     return get_problem_part(filename, "post", Any)
 end
-    
-
-# Utility functions
-"""
-    get_dof2node
-"""
-get_dof2node(def::FEDefinition) = get_dof2node(getdh(def))
-function get_dof2node(dh)
-    fieldnames = Ferrite.getfieldnames(dh)
-    dofs = collect(1:ndofs(dh))
-    return Dict(field=>reshape_to_nodes(dh, dofs, field) for field in fieldnames)
-end
-
