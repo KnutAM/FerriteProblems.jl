@@ -49,16 +49,39 @@ function FerriteIO(
 end
 
 """
-    FerriteIO(filename::String)
+    FerriteIO(filepath::String)
 
-Constructor for reading a `FerriteIO` that was saved during a simulation
+Constructor for reading a `FerriteIO` that was saved during a simulation.
+The default filename is `FerriteIO.jld2`, located in the `savefolder` given 
+to the `FerriteProblem` constructor when setting up the simulation. 
+
+Can be called either with the do-block (recommended),
+```julia
+FerriteIO(filepath) do io
+    # Do whatever with io 
+end
+```
+or by manually closing,
+```julia
+io = FerriteIO(filepath)
+# Do whatever with io
+close(io)
+```
 """
-function FerriteIO(filename::String)
-    endswith(filename, ".jld2") || @warn("Expected file ending with \".jld2\", unlike $filename")
-    io = get_problem_part(filename, "io", FerriteIO)
-    io.folder = dirname(filename) # Update folder location, assume that other files maintain relative paths
+function FerriteIO(filepath::String)
+    endswith(filepath, ".jld2") || @warn("Expected file ending with \".jld2\", unlike $filepath")
+    io = get_problem_part(filepath, "io", FerriteIO)
+    io.folder = dirname(filepath) # Update folder location, assume that other files maintain relative paths
     io.filenumber = -1            # Force re-opening file if needed
     return io
+end
+function FerriteIO(f::Function, filepath::String)
+    io = FerriteIO(filepath)
+    try
+        f(io)
+    finally
+        close(io)
+    end
 end
 
 """
@@ -82,7 +105,7 @@ Close the currently open file in `io`, then the postprocessing
 struct to a jld2 file (if not `post != nothing`),
 before finally saving the current `io` object to a .jld2 file
 """
-function close_io(io::FerriteIO, post)   # internal
+function close_io(io::FerriteIO, post)   # internal (called when simulation completed)
     close(io.fileobject)
     isnothing(post) || jldsave(filepath(io, io.postfile); post=post)
     jldsave(joinpath(io.folder, "FerriteIO.jld2"), io=io)
@@ -90,6 +113,7 @@ end
 # Do nothing if there is no io defined. 
 close_io(args...) = nothing 
 
+# This close should be called by the user after doing postprocessing
 Base.close(io::FerriteIO) = close(io.fileobject)
 
 """
