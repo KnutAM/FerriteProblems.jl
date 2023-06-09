@@ -50,47 +50,37 @@ end
 function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
     return PoroElastic(elastic, k, α, β)
 end;</code></pre><p>And then we also have to define the specific element routine which we do by defining the residual and using autodiff to calculate the tangent</p><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
-    # Setup cellvalues and give easier names
-    cv_u = cv[:u]
-    cv_p = cv[:p]
-    num_u = getnbasefunctions(cv_u)
-    num_p = getnbasefunctions(cv_p)
+    cv_u = cv[:u] # Cellvalues for displacements
+    cv_p = cv[:p] # Cellvalues for the pressure
     Δt = FerriteAssembly.get_time_increment(buffer)
 
-    # Assign views to the matrix and vector parts
-    ae_old = FerriteAssembly.get_aeold(buffer)
-    udofs = dof_range(buffer, :u)
-    pdofs = dof_range(buffer, :p)
-    ru = @view re[udofs]
-    rp = @view re[pdofs]
-    ue = @view ae[udofs]
-    pe = @view ae[pdofs]
-    ue_old = @view ae_old[udofs]
-    pe_old = @view ae_old[pdofs]
+    ae_old = FerriteAssembly.get_aeold(buffer)  # Old element degrees of freedom
+    udofs = dof_range(buffer, :u)               # Element dof indices for displacements
+    pdofs = dof_range(buffer, :p)               # ELement dof indices for the pressure
 
     # Assemble stiffness and force vectors
     for q_point in 1:getnquadpoints(cv_u)
         # Calculate variables in the current quadrature point
         dΩ = getdetJdV(cv_u, q_point)
-        ϵ = function_symmetric_gradient(cv_u, q_point, ue)
-        ϵ_old = function_symmetric_gradient(cv_u, q_point, ue_old)
-        p = function_value(cv_p, q_point, pe)
-        p_old = function_value(cv_p, q_point, pe_old)
-        ∇p = function_gradient(cv_p, q_point, pe)
+        ϵ = function_symmetric_gradient(cv_u, q_point, ae, udofs)
+        ϵ_old = function_symmetric_gradient(cv_u, q_point, ae_old, udofs)
+        p = function_value(cv_p, q_point, ae, pdofs)
+        p_old = function_value(cv_p, q_point, ae_old, pdofs)
+        ∇p = function_gradient(cv_p, q_point, ae, pdofs)
         pdot = (p-p_old)/Δt
         div_udot = (tr(ϵ)-tr(ϵ_old))/Δt
         σeff = material.elastic.E4 ⊡ ϵ
 
         # Assemble residual contributions
-        for iᵤ in 1:num_u
+        for (iᵤ, Iᵤ) in pairs(udofs)
             ∇δNu = shape_symmetric_gradient(cv_u, q_point, iᵤ)
             div_δNu = shape_divergence(cv_u, q_point, iᵤ)
-            ru[iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
+            re[Iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
         end
-        for iₚ in 1:num_p
+        for (iₚ, Iₚ) in pairs(pdofs)
             δNp = shape_value(cv_p, q_point, iₚ)
             ∇δNp = shape_gradient(cv_p, q_point, iₚ)
-            rp[iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
+            re[Iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
         end
     end
 end;</code></pre><h2 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h2><h3 id="Mesh-import"><a class="docs-heading-anchor" href="#Mesh-import">Mesh import</a><a id="Mesh-import-1"></a><a class="docs-heading-anchor-permalink" href="#Mesh-import" title="Permalink"></a></h3><p>In this example, we import the mesh from the Abaqus input file, <a href="porous_media_0p75.inp"><code>porous_media_0p75.inp</code></a> using <code>FerriteMeshParser</code>&#39;s <code>get_ferrite_grid</code> function. (A finer mesh, <a href="porous_media_0p25.inp"><code>porous_media_0p25.inp</code></a>, is also available) We then create one cellset for each phase (solid and porous) for each element type. These 4 sets will later be used in their own <code>FieldHandler</code></p><pre><code class="language-julia hljs">function get_grid()
@@ -122,9 +112,9 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 
     # Setup the MixedDofHandler
     dh = MixedDofHandler(grid)
-    fh1 = FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,&quot;solid3&quot;))
+    fh1 = FieldHandler([Field(:u, ip3_quad, dim)], getcellset(grid,&quot;solid3&quot;))
     add!(dh, fh1)
-    fh2 = FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,&quot;solid4&quot;))
+    fh2 = FieldHandler([Field(:u, ip4_quad, dim)], getcellset(grid,&quot;solid4&quot;))
     add!(dh, fh2)
     fh3 = FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,&quot;porous3&quot;))
     add!(dh, fh3)
@@ -133,14 +123,14 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
     close!(dh)
 
     # Setup the AssemblyDomains
-    # Solid domain with Triangle elements, linear displacement interpolation
+    # Solid domain with Triangle elements, quadratic displacement interpolation
     sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
-    cv1 = CellVectorValues(qr3, ip3_lin)
+    cv1 = CellVectorValues(qr3, ip3_quad, ip3_lin)
     ad1 = AssemblyDomain(&quot;solid3&quot;, sdh1, Elastic(), cv1)
 
-    # Solid domain with Quadrilateral elements, linear displacement interpolation
+    # Solid domain with Quadrilateral elements, quadratic displacement interpolation
     sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
-    cv2 = CellVectorValues(qr4, ip4_lin)
+    cv2 = CellVectorValues(qr4, ip4_quad, ip4_lin)
     ad2 = AssemblyDomain(&quot;solid4&quot;, sdh2, Elastic(), cv2)
 
     # Porous domain with Triangle elements
@@ -225,47 +215,37 @@ function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
 end;
 
 function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
-    # Setup cellvalues and give easier names
-    cv_u = cv[:u]
-    cv_p = cv[:p]
-    num_u = getnbasefunctions(cv_u)
-    num_p = getnbasefunctions(cv_p)
+    cv_u = cv[:u] # Cellvalues for displacements
+    cv_p = cv[:p] # Cellvalues for the pressure
     Δt = FerriteAssembly.get_time_increment(buffer)
 
-    # Assign views to the matrix and vector parts
-    ae_old = FerriteAssembly.get_aeold(buffer)
-    udofs = dof_range(buffer, :u)
-    pdofs = dof_range(buffer, :p)
-    ru = @view re[udofs]
-    rp = @view re[pdofs]
-    ue = @view ae[udofs]
-    pe = @view ae[pdofs]
-    ue_old = @view ae_old[udofs]
-    pe_old = @view ae_old[pdofs]
+    ae_old = FerriteAssembly.get_aeold(buffer)  # Old element degrees of freedom
+    udofs = dof_range(buffer, :u)               # Element dof indices for displacements
+    pdofs = dof_range(buffer, :p)               # ELement dof indices for the pressure
 
     # Assemble stiffness and force vectors
     for q_point in 1:getnquadpoints(cv_u)
         # Calculate variables in the current quadrature point
         dΩ = getdetJdV(cv_u, q_point)
-        ϵ = function_symmetric_gradient(cv_u, q_point, ue)
-        ϵ_old = function_symmetric_gradient(cv_u, q_point, ue_old)
-        p = function_value(cv_p, q_point, pe)
-        p_old = function_value(cv_p, q_point, pe_old)
-        ∇p = function_gradient(cv_p, q_point, pe)
+        ϵ = function_symmetric_gradient(cv_u, q_point, ae, udofs)
+        ϵ_old = function_symmetric_gradient(cv_u, q_point, ae_old, udofs)
+        p = function_value(cv_p, q_point, ae, pdofs)
+        p_old = function_value(cv_p, q_point, ae_old, pdofs)
+        ∇p = function_gradient(cv_p, q_point, ae, pdofs)
         pdot = (p-p_old)/Δt
         div_udot = (tr(ϵ)-tr(ϵ_old))/Δt
         σeff = material.elastic.E4 ⊡ ϵ
 
         # Assemble residual contributions
-        for iᵤ in 1:num_u
+        for (iᵤ, Iᵤ) in pairs(udofs)
             ∇δNu = shape_symmetric_gradient(cv_u, q_point, iᵤ)
             div_δNu = shape_divergence(cv_u, q_point, iᵤ)
-            ru[iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
+            re[Iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
         end
-        for iₚ in 1:num_p
+        for (iₚ, Iₚ) in pairs(pdofs)
             δNp = shape_value(cv_p, q_point, iₚ)
             ∇δNp = shape_gradient(cv_p, q_point, iₚ)
-            rp[iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
+            re[Iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
         end
     end
 end;
@@ -301,9 +281,9 @@ function create_definition(;t_rise=0.1, p_max=100.0)
 
     # Setup the MixedDofHandler
     dh = MixedDofHandler(grid)
-    fh1 = FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,&quot;solid3&quot;))
+    fh1 = FieldHandler([Field(:u, ip3_quad, dim)], getcellset(grid,&quot;solid3&quot;))
     add!(dh, fh1)
-    fh2 = FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,&quot;solid4&quot;))
+    fh2 = FieldHandler([Field(:u, ip4_quad, dim)], getcellset(grid,&quot;solid4&quot;))
     add!(dh, fh2)
     fh3 = FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,&quot;porous3&quot;))
     add!(dh, fh3)
@@ -312,14 +292,14 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     close!(dh)
 
     # Setup the AssemblyDomains
-    # Solid domain with Triangle elements, linear displacement interpolation
+    # Solid domain with Triangle elements, quadratic displacement interpolation
     sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
-    cv1 = CellVectorValues(qr3, ip3_lin)
+    cv1 = CellVectorValues(qr3, ip3_quad, ip3_lin)
     ad1 = AssemblyDomain(&quot;solid3&quot;, sdh1, Elastic(), cv1)
 
-    # Solid domain with Quadrilateral elements, linear displacement interpolation
+    # Solid domain with Quadrilateral elements, quadratic displacement interpolation
     sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
-    cv2 = CellVectorValues(qr4, ip4_lin)
+    cv2 = CellVectorValues(qr4, ip4_quad, ip4_lin)
     ad2 = AssemblyDomain(&quot;solid4&quot;, sdh2, Elastic(), cv2)
 
     # Porous domain with Triangle elements
@@ -373,4 +353,4 @@ problem = FerriteProblem(create_definition(), PostProcess())
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x-&gt;x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Friday 9 June 2023 16:49">Friday 9 June 2023</span>. Using Julia version 1.9.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Friday 9 June 2023 18:00">Friday 9 June 2023</span>. Using Julia version 1.9.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

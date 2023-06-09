@@ -35,47 +35,37 @@ function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
 end;
 
 function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
-    # Setup cellvalues and give easier names
-    cv_u = cv[:u]
-    cv_p = cv[:p]
-    num_u = getnbasefunctions(cv_u)
-    num_p = getnbasefunctions(cv_p)
+    cv_u = cv[:u] # Cellvalues for displacements
+    cv_p = cv[:p] # Cellvalues for the pressure
     Δt = FerriteAssembly.get_time_increment(buffer)
 
-    # Assign views to the matrix and vector parts
-    ae_old = FerriteAssembly.get_aeold(buffer)
-    udofs = dof_range(buffer, :u)
-    pdofs = dof_range(buffer, :p)
-    ru = @view re[udofs]
-    rp = @view re[pdofs]
-    ue = @view ae[udofs]
-    pe = @view ae[pdofs]
-    ue_old = @view ae_old[udofs]
-    pe_old = @view ae_old[pdofs]
+    ae_old = FerriteAssembly.get_aeold(buffer)  # Old element degrees of freedom
+    udofs = dof_range(buffer, :u)               # Element dof indices for displacements
+    pdofs = dof_range(buffer, :p)               # ELement dof indices for the pressure
 
     # Assemble stiffness and force vectors
     for q_point in 1:getnquadpoints(cv_u)
         # Calculate variables in the current quadrature point
         dΩ = getdetJdV(cv_u, q_point)
-        ϵ = function_symmetric_gradient(cv_u, q_point, ue)
-        ϵ_old = function_symmetric_gradient(cv_u, q_point, ue_old)
-        p = function_value(cv_p, q_point, pe)
-        p_old = function_value(cv_p, q_point, pe_old)
-        ∇p = function_gradient(cv_p, q_point, pe)
+        ϵ = function_symmetric_gradient(cv_u, q_point, ae, udofs)
+        ϵ_old = function_symmetric_gradient(cv_u, q_point, ae_old, udofs)
+        p = function_value(cv_p, q_point, ae, pdofs)
+        p_old = function_value(cv_p, q_point, ae_old, pdofs)
+        ∇p = function_gradient(cv_p, q_point, ae, pdofs)
         pdot = (p-p_old)/Δt
         div_udot = (tr(ϵ)-tr(ϵ_old))/Δt
         σeff = material.elastic.E4 ⊡ ϵ
 
         # Assemble residual contributions
-        for iᵤ in 1:num_u
+        for (iᵤ, Iᵤ) in pairs(udofs)
             ∇δNu = shape_symmetric_gradient(cv_u, q_point, iᵤ)
             div_δNu = shape_divergence(cv_u, q_point, iᵤ)
-            ru[iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
+            re[Iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
         end
-        for iₚ in 1:num_p
+        for (iₚ, Iₚ) in pairs(pdofs)
             δNp = shape_value(cv_p, q_point, iₚ)
             ∇δNp = shape_gradient(cv_p, q_point, iₚ)
-            rp[iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
+            re[Iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
         end
     end
 end;
@@ -111,9 +101,9 @@ function create_definition(;t_rise=0.1, p_max=100.0)
 
     # Setup the MixedDofHandler
     dh = MixedDofHandler(grid)
-    fh1 = FieldHandler([Field(:u, ip3_lin, dim)], getcellset(grid,"solid3"))
+    fh1 = FieldHandler([Field(:u, ip3_quad, dim)], getcellset(grid,"solid3"))
     add!(dh, fh1)
-    fh2 = FieldHandler([Field(:u, ip4_lin, dim)], getcellset(grid,"solid4"))
+    fh2 = FieldHandler([Field(:u, ip4_quad, dim)], getcellset(grid,"solid4"))
     add!(dh, fh2)
     fh3 = FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,"porous3"))
     add!(dh, fh3)
@@ -122,14 +112,14 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     close!(dh)
 
     # Setup the AssemblyDomains
-    # Solid domain with Triangle elements, linear displacement interpolation
+    # Solid domain with Triangle elements, quadratic displacement interpolation
     sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
-    cv1 = CellVectorValues(qr3, ip3_lin)
+    cv1 = CellVectorValues(qr3, ip3_quad, ip3_lin)
     ad1 = AssemblyDomain("solid3", sdh1, Elastic(), cv1)
 
-    # Solid domain with Quadrilateral elements, linear displacement interpolation
+    # Solid domain with Quadrilateral elements, quadratic displacement interpolation
     sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
-    cv2 = CellVectorValues(qr4, ip4_lin)
+    cv2 = CellVectorValues(qr4, ip4_quad, ip4_lin)
     ad2 = AssemblyDomain("solid4", sdh2, Elastic(), cv2)
 
     # Porous domain with Triangle elements
