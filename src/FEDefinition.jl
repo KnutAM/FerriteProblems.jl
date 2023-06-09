@@ -1,3 +1,10 @@
+@kwdef struct FESolversFunctions{F1,F2,F3,F4}
+    update_to_next_step!::F1 = fp_update_to_next_step!
+    update_problem!::F2 = fp_update_problem!
+    calculate_convergence_measure::F3 = fp_calculate_convergence_measure
+    handle_converged!::F4 = fp_handle_converged!
+end
+
 """
 Create the `FEDefinition` which can later be used to create a complete 
 `FerriteProblem`. 
@@ -41,13 +48,15 @@ For both constructors cases, the following inputs can be supplied
 * `threading`: Should threading be used? 
   `Bool` input can also be given (will be converted internally to `Val`)
 """
-struct FEDefinition{DH,CH,NH,CC}
+struct FEDefinition{DH,CH,NH,CC,FF}
     # FE-handlers
     dh::DH  # DofHandler/MixedDofHandler
     ch::CH  # ConstraintHandler
     nh::NH  # NeumannHandler
     # Convergence criterion
     convergence_criterion::CC
+    # Custom overloading of FESolvers functions 
+    fesolverfuns::FF
     # For construction of FEBuffer, should not be used for performance critical code
     initial_conditions::NamedTuple  # NamedTuple: (fieldname=f(x),)
     autodiffbuffer::Val
