@@ -18,5 +18,4 @@ FerriteProblems.close_io
 FerriteProblems.checkkey
 FerriteProblems.savedata!
 FerriteProblems.getdata
-FerriteProblems.get_dof2node
 ```
