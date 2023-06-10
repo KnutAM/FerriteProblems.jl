@@ -1,8 +1,6 @@
-@kwdef struct FESolversFunctions{F1,F2,F3,F4}
+@kwdef struct FESolversFunctions{F1,F2}
     update_to_next_step!::F1 = fp_update_to_next_step!
     update_problem!::F2 = fp_update_problem!
-    calculate_convergence_measure::F3 = fp_calculate_convergence_measure
-    handle_converged!::F4 = fp_handle_converged!
 end
 
 """
@@ -68,10 +66,13 @@ _extract_dofhandler(domains::Vector{<:AssemblyDomain}) = domains[1].sdh.dh
 function FEDefinition(domain::Union{AssemblyDomain, Vector{<:AssemblyDomain}}; 
         ch, nh=NeumannHandler(_extract_dofhandler(domain)),
         convergence_criterion=AbsoluteResidual(), initial_conditions=NamedTuple(), 
-        autodiffbuffer=Val(false), threading=Val(false)
+        autodiffbuffer=Val(false), threading=Val(false),
+        fesolverfuns=FESolversFunctions(),
         )
     dh = _extract_dofhandler(domain)
-    return FEDefinition(dh, ch, nh, convergence_criterion, initial_conditions, autodiffbuffer, threading, domain)
+    return FEDefinition(
+        dh, ch, nh, convergence_criterion, fesolverfuns, 
+        initial_conditions, autodiffbuffer, threading, domain)
 end
 # Constructor without creating AssemblyDomain first, used for single domains
 function FEDefinition(;

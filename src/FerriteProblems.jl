@@ -116,6 +116,10 @@ addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
 # * handle_converged!
 
 function FESolvers.update_to_next_step!(p::FerriteProblem, time)
+    p.def.fesolverfuns.update_to_next_step!(p, time)
+end
+
+function fp_update_to_next_step!(p::FerriteProblem, time)
     # Update the current time
     settime!(p, time)
 
@@ -130,7 +134,10 @@ function FESolvers.update_to_next_step!(p::FerriteProblem, time)
     apply_zero!(f, getch(p)) # Make force zero at constrained dofs (to be compatible with apply local)
 end
 
-function FESolvers.update_problem!(p::FerriteProblem, Δa; update_residual, update_jacobian)
+function FESolvers.update_problem!(p::FerriteProblem, args...; kwargs...)
+    p.def.fesolverfuns.update_problem!(p, args...; kwargs...)
+end
+function fp_update_problem!(p::FerriteProblem, Δa; update_residual, update_jacobian)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
     if !isnothing(Δa)
