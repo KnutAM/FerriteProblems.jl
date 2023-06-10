@@ -20,7 +20,7 @@ end
 
 function FEBuffer(def::FEDefinition)
     n = ndofs(getdh(def))
-    K = create_sparsity_pattern(getdh(def))
+    K = create_sparsity_pattern(getdh(def), getch(def))
     x, r, f = zeros.((n,n,n))
     ic = def.initial_conditions # ::NamedTuple 
     foreach((field_name, fun)->apply_analytical!(x, getdh(def), field_name, fun), keys(ic), values(ic))
