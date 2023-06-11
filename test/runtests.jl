@@ -1,9 +1,8 @@
+using Test
+using LinearAlgebra
 using Ferrite, FerriteAssembly
 using FerriteProblems
-using Test
 import FerriteProblems as FP
 
 
-@testset "FerriteProblems.jl" begin
-    
-end
+include("CustomStiffness.jl") # The most experimental feature get's tested first 😆

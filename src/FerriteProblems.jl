@@ -13,6 +13,7 @@ include("ConvergenceCriteria.jl")
 include("FEDefinition.jl")
 include("FEBuffer.jl")
 include("IO.jl")
+include("CustomStiffness.jl")
 
 struct FerriteProblem{DEF<:FEDefinition,POST,BUF<:FEBuffer,IOT}
     def::DEF
