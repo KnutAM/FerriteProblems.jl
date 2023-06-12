@@ -1,4 +1,4 @@
-import FerriteProblems: CustomStiffness, get_stiffness_type, set_stiffness_type!
+import FerriteProblems: CustomStiffness, get_stiffness_type
 # Have this wrapper to not directly modify the behavior for HeatEquation
 struct CSTestWrap{M}
     m::M
@@ -37,7 +37,7 @@ end
     assembler = start_assemble(K, r)
     doassemble!(assembler, new_states, buffer)
     d1 = sum(diag(collect(K)))
-    set_stiffness_type!(m, :negative)
+    m.stiffness_type = :negative
     assembler = start_assemble(K, r)
     doassemble!(assembler, new_states, buffer)
     d2 = sum(diag(collect(K)))

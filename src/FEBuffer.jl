@@ -60,6 +60,20 @@ function FerriteAssembly.get_material(::FEBuffer{<:Any,<:Any,<:Dict{String}})
 end
 
 """
+    set_jacobian_type(material, type)
+
+Define this function for your material, and the type given by `FESolvers.UpdateSpec` 
+when the solver asks for different jacobian calculation. The function should return the 
+modified material according to the given type. See `CustomStiffness` for an example, or 
+use this wrapper directly if that is sufficient. 
+"""
+set_jacobian_type(material, type) = material # Default to not implemented, silently doing nothing if not supported.
+
+function change_material_jacobian_type!(b::FEBuffer, type)
+    FerriteAssembly.modify_material!(m->set_jacobian_type(m, type), getassemblybuffer(b))
+end
+
+"""
     FerriteProblems.getjacobian(p::FerriteProblem)
 
 Get the current jacobian matrix from `p`. 

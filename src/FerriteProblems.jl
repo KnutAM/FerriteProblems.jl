@@ -138,7 +138,7 @@ end
 function FESolvers.update_problem!(p::FerriteProblem, args...; kwargs...)
     p.def.fesolverfuns.update_problem!(p, args...; kwargs...)
 end
-function fp_update_problem!(p::FerriteProblem, Δa; update_residual, update_jacobian)
+function fp_update_problem!(p::FerriteProblem, Δa, update_spec)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
     if !isnothing(Δa)
@@ -146,12 +146,16 @@ function fp_update_problem!(p::FerriteProblem, Δa; update_residual, update_jaco
         a .+= Δa
     end
     
+    # If `update_spec` requests, update the `m=set_jacobian_type(m, type)`
+    # This defaults to no-op if not defined. 
+    change_material_jacobian_type!(p.buf, FESolvers.get_update_type(update_spec))
+
     K = FESolvers.getjacobian(p)
     r = FESolvers.getresidual(p)
-    if update_jacobian # Update both residual and jacobian
+    if FESolvers.should_update_jacobian(update_spec) # Update both residual and jacobian
         scaling = get_tolerance_scaling(p).assemscaling
         assembler = KeReAssembler(K, r; ch=getch(p), apply_zero=true, scaling=scaling)
-    elseif update_residual # update only residual
+    elseif FESolvers.should_update_residual(update_spec) # update only residual
         assembler = ReAssembler(r; scaling=get_tolerance_scaling(p).assemscaling)
     else # Only update a
         return nothing

@@ -25,7 +25,9 @@ end
 where `ModifiedPicardWrapper` is a wrapper to change how the stiffness is calculated, i.e.
 `FA.element_routine!(Ke, re, new_state, ae, m::ModifiedPicardWrapper{<:MyMat}, args...; kwargs...)`
 is implementated. The `CustomStiffness` wrapper uses the `FerriteAssembly.unwrap_material_for_ad` 
-feature to support calculating the stiffness for `m.material` using automatic differentiation as usual. 
+feature to support calculating the stiffness for `m.material` using automatic differentiation as usual.
+It also supports the `set_jacobian_type` method, such that the type requested by `FESolvers.UpdateSpec`
+can be respected by the `CustomStiffness`-wrapped material. 
 """
 mutable struct CustomStiffness{M}
     const material::M
@@ -35,9 +37,6 @@ function FerriteAssembly.unwrap_material_for_ad(cs::CustomStiffness)
     return FerriteAssembly.unwrap_material_for_ad(cs.material)
 end
 get_stiffness_type(cs::CustomStiffness) = cs.stiffness_type
-function set_stiffness_type!(cs::CustomStiffness, stiffness_type::Symbol)
-    cs.stiffness_type = stiffness_type
-end
 
 function FerriteAssembly.element_routine!(Ke, re, new_state, ae, m::CustomStiffness{M}, args...; kwargs...) where M
     msg = join(("You must implement element_routine!, normally for m::CustomStiffness{<:", nameof(M), "}"))
@@ -54,4 +53,18 @@ end
 
 function FerriteAssembly.allocate_cell_cache(m::CustomStiffness, args...)
     FerriteAssembly.allocate_cell_cache(m.material, args...)
+end
+
+# Overload `set_jacobian_type` for `CustomStiffness`:
+function set_jacobian_type(m::CustomStiffness, type::Symbol)
+    m.stiffness_type = type
+    return m
+end
+
+# Do nothing of no type is specified (standard solvers):
+set_jacobian_type(m::CustomStiffness, ::Nothing) = m 
+
+# Throw error if non-supported jacobian type is given:
+function set_jacobian_type(::CustomStiffness, _)
+    throw(ArgumentError("Only type::Symbol is supported for CustomStiffness"))
 end
