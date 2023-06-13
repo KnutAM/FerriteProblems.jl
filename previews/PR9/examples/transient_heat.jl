@@ -2,7 +2,7 @@ using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
 import FerriteProblems as FP
 import FerriteAssembly as FA
 
-Base.@kwdef struct FourierMaterial{T}
+@kwdef struct FourierMaterial{T}
     k::T=1.0e-3    # Thermal conductivity
     f::T=5.0e-1    # Constant heat source
 end
