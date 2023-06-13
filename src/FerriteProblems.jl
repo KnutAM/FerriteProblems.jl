@@ -1,5 +1,5 @@
 module FerriteProblems
-
+import Base: @kwdef # Support julia <1.9
 using Printf
 using FileIO, JLD2
 using Ferrite
