@@ -1,10 +1,10 @@
 """
-    CustomStiffness(material, stiffness_type::Symbol)
+    CustomStiffness(material, stiffness_type)
 
 `CustomStiffness` is a wrapper for a `material`, which makes it possible to define custom behavior 
 without changing the type of the material. This wrapper is intended to change how the 
 element stiffness, `Ke`, is calculated, by branching on the `stiffness_type` value. 
-This value can be changed by calling `set_stiffness_type!(::CustomStiffness, ::Symbol)`. 
+This value can be changed by calling `set_stiffness_type!(::CustomStiffness, ::Any)`. 
 To use this wrapper, overload the `element_routine!` for `::CustomStiffness{<:MyMat}` as follows. 
 ```julia
 import FerriteAssembly as FA
@@ -29,9 +29,9 @@ feature to support calculating the stiffness for `m.material` using automatic di
 It also supports the `set_jacobian_type` method, such that the type requested by `FESolvers.UpdateSpec`
 can be respected by the `CustomStiffness`-wrapped material. 
 """
-mutable struct CustomStiffness{M}
+mutable struct CustomStiffness{M,ST}
     const material::M
-    stiffness_type::Symbol
+    stiffness_type::ST
 end
 function FerriteAssembly.unwrap_material_for_ad(cs::CustomStiffness)
     return FerriteAssembly.unwrap_material_for_ad(cs.material)
@@ -56,15 +56,7 @@ function FerriteAssembly.allocate_cell_cache(m::CustomStiffness, args...)
 end
 
 # Overload `set_jacobian_type` for `CustomStiffness`:
-function set_jacobian_type(m::CustomStiffness, type::Symbol)
+function set_jacobian_type(m::CustomStiffness{<:Any,ST}, type::ST) where ST
     m.stiffness_type = type
     return m
-end
-
-# Do nothing of no type is specified (standard solvers):
-set_jacobian_type(m::CustomStiffness, ::Nothing) = m 
-
-# Throw error if non-supported jacobian type is given:
-function set_jacobian_type(::CustomStiffness, _)
-    throw(ArgumentError("Only type::Symbol is supported for CustomStiffness"))
 end
