@@ -5,6 +5,7 @@
 /Manifest.toml
 /docs/build/
 /docs/src/examples/
+/docs/Manifest.toml
 
 *.vtu
 *.pvd
