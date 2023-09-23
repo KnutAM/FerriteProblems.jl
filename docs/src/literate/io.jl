@@ -57,7 +57,7 @@ plts = FerriteIO("B/FerriteIO.jld2") do io
     step = length(t_history)
     u = FP.getdofdata(io, step)
     states = FP.getipdata(io, step, "state")
-    dh = FP.getdh(def)
+    dh = FP.get_dofhandler(def)
     mises_values = zeros(getncells(dh.grid))
     for (el, cell_states) in pairs(states) # states::Dict{Int}
         for state in cell_states

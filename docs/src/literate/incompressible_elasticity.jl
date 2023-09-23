@@ -155,7 +155,7 @@ end
 
 function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
     step == 1 && return nothing # We don't want to save the initial conditions. 
-    dh = FP.getdh(p)
+    dh = FP.get_dofhandler(p)
     vtk_grid(post.vtk_file, dh) do vtkfile
         vtk_point_data(vtkfile, dh, FP.getunknowns(p))
     end

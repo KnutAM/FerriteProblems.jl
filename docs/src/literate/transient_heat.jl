@@ -92,7 +92,7 @@ PostProcessing() = PostProcessing(paraview_collection("transient-heat.pvd"));
 function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
     if step < 5 || mod(step, 20) == 0
         @info "postprocessing step $step"
-        dh = FP.getdh(p)
+        dh = FP.get_dofhandler(p)
         vtk_grid("transient-heat-$step", dh) do vtk
             vtk_point_data(vtk, dh, FP.getunknowns(p))
             vtk_save(vtk)

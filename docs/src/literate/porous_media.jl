@@ -304,8 +304,8 @@ function PostProcess(filestem="porous_media")
 end
 
 function FESolvers.postprocess!(post::PostProcess, p, step, solver)
-    vtk_grid("$(post.filestem)-$step", FP.getdh(p)) do vtk
-        vtk_point_data(vtk, FP.getdh(p), FP.getunknowns(p))
+    vtk_grid("$(post.filestem)-$step", FP.get_dofhandler(p)) do vtk
+        vtk_point_data(vtk, FP.get_dofhandler(p), FP.getunknowns(p))
         vtk_save(vtk)
         post.pvd[step] = vtk 
     end
