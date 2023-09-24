@@ -28,16 +28,15 @@ katex=Documenter.KaTeX(Dict(:Macros=>Dict(
 =#
 
 makedocs(;
-    modules=[FerriteProblems],
     authors="Knut Andreas Meyer and contributors",
-    repo="https://github.com/KnutAM/FerriteProblems.jl/blob/{commit}{path}#{line}",
     sitename="FerriteProblems.jl",
     format=Documenter.HTML(;
-        prettyurls=is_ci,
         canonical="https://KnutAM.github.io/FerriteProblems.jl",
-        edit_link="main",
         assets=String[],
+        collapselevel = 1,
     ),
+    warnonly = true,
+    doctest = false,
     pages=[
         "Home" => "index.md",
         "API" => "api.md",
