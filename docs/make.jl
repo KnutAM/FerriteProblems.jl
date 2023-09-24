@@ -44,7 +44,6 @@ makedocs(;
         "Examples" => GENERATEDEXAMPLES,
         "Internals" => "internals.md",
     ],
-    strict=Documenter.except(:missing_docs),
 )
 
 # Remove any generated files, see `generate.jl`

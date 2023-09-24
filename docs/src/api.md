@@ -41,7 +41,7 @@ FerriteProblems.get_material
 FerriteProblems.getjacobian
 FerriteProblems.getunknowns
 FerriteProblems.getresidual
-FerriteProblems.getneumannforce
+FerriteProblems.get_external_force
 FerriteProblems.get_old_unknowns
 FerriteProblems.get_state
 FerriteProblems.get_old_state
