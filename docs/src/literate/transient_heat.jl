@@ -76,20 +76,21 @@ function create_definition()
     close!(ch)
     
     ## Create and return the `FEDefinition`
-    return FEDefinition(;dh=dh, ch=ch, cellvalues=cellvalues, material=FourierMaterial())
+    domainspec = DomainSpec(dh, FourierMaterial(), cellvalues)
+    return FEDefinition(domainspec; ch)
 end;
 
 # ## Postprocessing
 # After defining all the physics and problem setup, we must decide what data to save.
 # In this example, we use the vtk-file exports as in the original example. To this end, 
 # we define the custom postprocessing struct
-struct PostProcessing{PVD}
+struct TH_PostProcessing{PVD}
     pvd::PVD
 end
-PostProcessing() = PostProcessing(paraview_collection("transient-heat.pvd"));
+TH_PostProcessing() = TH_PostProcessing(paraview_collection("transient-heat.pvd"));
 
 # And the postprocessing function that is called after each time step
-function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+function FESolvers.postprocess!(post::TH_PostProcessing, p, step, solver)
     if step < 5 || mod(step, 20) == 0
         @info "postprocessing step $step"
         dh = FP.get_dofhandler(p)
@@ -104,14 +105,14 @@ end;
 # At the end of the simulation, we want to finish all IO operations. 
 # We can then define the function `close_postprocessing` which will be called 
 # even in the case that an error is thrown during the simulation
-function FP.close_postprocessing(post::PostProcessing, p)
+function FP.close_postprocessing(post::TH_PostProcessing, p)
     vtk_save(post.pvd)
 end;
 
 # And now we create the problem type, and define the QuasiStaticSolver with 
 # the LinearProblemSolver as well as fixed time steps 
 def = create_definition()
-post = PostProcessing()
+post = TH_PostProcessing()
 problem = FerriteProblem(def, post)
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(collect(0.0:1.0:200)));
 

@@ -7,7 +7,7 @@
 # 
 # First we need to load all required packages
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
-using FerriteProblems, FESolvers, FerriteNeumann, FerriteAssembly
+using FerriteProblems, FESolvers, FerriteAssembly
 import FerriteProblems as FP
 using Plots; gr();
 
@@ -51,11 +51,12 @@ function setup_problem_definition()
     close!(ch)
 
     ## Neumann boundary conditions (`FerriteNeumann.jl`)
-    nh = NeumannHandler(dh)
+    lh = LoadHandler(dh)
     quad_order = 3
-    add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
+    add!(lh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
 
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=material)
+    domainspec = DomainSpec(dh, material, cv)
+    return FEDefinition(domainspec; ch, lh)
 end;
 
 # For the problem at hand, `FerriteAssembly.element_routine!` is defined in `FerriteAssembly.jl`.
@@ -91,7 +92,7 @@ function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     ## * Save the dof values (only displacments in this case)
     FP.savedofdata!(p.io, FP.getunknowns(p))
     ## * Save the state in each integration point
-    FP.saveipdata!(p.io, FP.getstate(p), "state")
+    FP.saveipdata!(p.io, FP.get_state(p), "state")
 end;
 
 # We also define a helper function to plot the results after completion
