@@ -1,5 +1,5 @@
 module FerriteProblems
-
+import Base: @kwdef # Support julia <1.9
 using Printf
 using FileIO, JLD2
 using Ferrite
@@ -13,6 +13,7 @@ include("ConvergenceCriteria.jl")
 include("FEDefinition.jl")
 include("FEBuffer.jl")
 include("IO.jl")
+include("CustomStiffness.jl")
 
 struct FerriteProblem{DEF<:FEDefinition,POST,BUF<:FEBuffer,IOT}
     def::DEF
@@ -124,6 +125,10 @@ addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, get_time(p))
 # * handle_converged!
 
 function FESolvers.update_to_next_step!(p::FerriteProblem, time)
+    p.def.fesolverfuns.update_to_next_step!(p, time)
+end
+
+function fp_update_to_next_step!(p::FerriteProblem, time)
     ch = get_constrainthandler(p)
     # Update the current time
     set_time!(p, time)
@@ -140,7 +145,10 @@ function FESolvers.update_to_next_step!(p::FerriteProblem, time)
     apply_zero!(f, ch) # Make force zero at constrained dofs (to be compatible with apply local)
 end
 
-function FESolvers.update_problem!(p::FerriteProblem, Δa; update_residual, update_jacobian)
+function FESolvers.update_problem!(p::FerriteProblem, args...; kwargs...)
+    p.def.fesolverfuns.update_problem!(p, args...; kwargs...)
+end
+function fp_update_problem!(p::FerriteProblem, Δa, update_spec)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
     ch = get_constrainthandler(p)
@@ -149,12 +157,16 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa; update_residual, upda
         a .+= Δa
     end
     
+    # If `update_spec` requests, update the `m=set_jacobian_type(m, type)`
+    # This defaults to no-op if not defined. 
+    change_material_jacobian_type!(p.buf, FESolvers.get_update_type(update_spec))
+
     K = FESolvers.getjacobian(p)
     r = FESolvers.getresidual(p)
-    if update_jacobian # Update both residual and jacobian
+    if FESolvers.should_update_jacobian(update_spec) # Update both residual and jacobian
         scaling = get_tolerance_scaling(p).assemscaling
         assembler = KeReAssembler(K, r; scaling=scaling)
-    elseif update_residual # update only residual
+    elseif FESolvers.should_update_residual(update_spec) # update only residual
         assembler = ReAssembler(r; scaling=get_tolerance_scaling(p).assemscaling)
     else # Only update a
         return nothing
