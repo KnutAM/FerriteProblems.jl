@@ -50,7 +50,7 @@ function setup_problem_definition()
     add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{3})), [1, 2, 3]))
     close!(ch)
 
-    ## Neumann boundary conditions (`FerriteNeumann.jl`)
+    ## Neumann boundary conditions
     lh = LoadHandler(dh)
     quad_order = 3
     add!(lh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
