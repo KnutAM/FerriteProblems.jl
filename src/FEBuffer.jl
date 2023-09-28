@@ -10,7 +10,7 @@ mutable struct FEBuffer{T,KT<:AbstractMatrix,VT<:AbstractVector,DB,TS} # interna
     const r::VT
     const f::VT
     const xold::VT
-    const domain_buffer::DB # DomainBuffer from FerriteAssembly.setup_domainbuffer[s]
+    domain_buffer::DB # DomainBuffer from FerriteAssembly.setup_domainbuffer[s]
     time::T
     old_time::T
     const tolscaling::TS
@@ -63,7 +63,7 @@ use this wrapper directly if that is sufficient.
 set_jacobian_type(material, type) = material # Default to not implemented, silently doing nothing if not supported.
 
 function change_material_jacobian_type!(b::FEBuffer, type)
-    FerriteAssembly.modify_material!(m->set_jacobian_type(m, type), getassemblybuffer(b))
+    b.domain_buffer = FerriteAssembly.replace_material(b.domain_buffer, m->set_jacobian_type(m, type))
 end
 
 """

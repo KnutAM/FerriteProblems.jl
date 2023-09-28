@@ -20,29 +20,28 @@ In addition, the following keyword arguments can be given
 * `convergence_criterion`: Determines how to calculate the convergence measure including scaling.
   See [`ConvergenceCriterion`](@ref)
 """
-struct FEDefinition{DH,CH,LH,CC,FF}
+struct FEDefinition{DH,CH,LH,CC}
     # FE-handlers
     dh::DH  # DofHandler
     ch::CH  # ConstraintHandler
     lh::LH  # LoadHandler
     # Convergence criterion
     convergence_criterion::CC
-    # Custom overloading of FESolvers functions 
-    fesolverfuns::FF
     # For construction of FEBuffer, should not be used for performance critical code
     initial_conditions::NamedTuple  # NamedTuple: (fieldname=f(x),)
-    domains # DomainSpec or Dict{String;DomainSpec}
+    domains # DomainSpec or Dict{String, DomainSpec}
 end
-_extract_dofhandler(domain::AssemblyDomain) = domain.sdh.dh
-_extract_dofhandler(domains::Vector{<:AssemblyDomain}) = domains[1].sdh.dh
-function FEDefinition(domain::Union{AssemblyDomain, Vector{<:AssemblyDomain}}; 
+_extract_dofhandler(domain::DomainSpec) = domain.sdh.dh
+_extract_dofhandler(domains::Dict{String, DomainSpec}) = first(values(domains)).sdh.dh
+function FEDefinition(domain::Union{DomainSpec, Dict{String, DomainSpec}}; 
         ch, lh=LoadHandler(_extract_dofhandler(domain)),
         convergence_criterion=AbsoluteResidual(), initial_conditions=NamedTuple(), 
         )
     dh = _extract_dofhandler(domain)
-    return FEDefinition(
-        dh, ch, lh, convergence_criterion, fesolverfuns, 
-        initial_conditions, domain)
+    return FEDefinition(dh, ch, lh, 
+        convergence_criterion, 
+        initial_conditions, 
+        domain)
 end
 
 # Note: The following functions are also overloaded for the entire ::FerriteProblem,

@@ -69,6 +69,9 @@ accounted for by defining, e.g.
 function FESolvers.postprocess!(p::FerriteProblem, step, solver)
     return FESolvers.postprocess!(p.post, p, step, solver)
 end
+function FESolvers.postprocess!(::Nothing, ::FerriteProblem, args...)
+    return nothing
+end
 
 # FEDefinition: Make functions work directly on `problem`:
 for op = (:get_dofhandler, :get_constrainthandler, :get_loadhandler)
@@ -125,10 +128,6 @@ addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, get_time(p))
 # * handle_converged!
 
 function FESolvers.update_to_next_step!(p::FerriteProblem, time)
-    p.def.fesolverfuns.update_to_next_step!(p, time)
-end
-
-function fp_update_to_next_step!(p::FerriteProblem, time)
     ch = get_constrainthandler(p)
     # Update the current time
     set_time!(p, time)
@@ -145,10 +144,7 @@ function fp_update_to_next_step!(p::FerriteProblem, time)
     apply_zero!(f, ch) # Make force zero at constrained dofs (to be compatible with apply local)
 end
 
-function FESolvers.update_problem!(p::FerriteProblem, args...; kwargs...)
-    p.def.fesolverfuns.update_problem!(p, args...; kwargs...)
-end
-function fp_update_problem!(p::FerriteProblem, Δa, update_spec)
+function FESolvers.update_problem!(p::FerriteProblem, Δa, update_spec)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
     ch = get_constrainthandler(p)
