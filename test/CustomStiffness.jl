@@ -22,10 +22,10 @@ end
 @testset "CustomStiffness" begin
     grid = generate_grid(Quadrilateral, (2,2))
     dh = DofHandler(grid)
-    add!(dh, :u, 1)
+    ip = Lagrange{RefQuadrilateral,1}()
+    add!(dh, :u, ip)
     close!(dh)
-    ip = Ferrite.default_interpolation(Quadrilateral)
-    cv = CellScalarValues(QuadratureRule{2,RefCube}(2), ip)
+    cv = CellValues(QuadratureRule{RefQuadrilateral}(2), ip)
     mw = CSTestWrap(FerriteAssembly.ExampleElements.StationaryFourier(1.0))
     m = CustomStiffness(mw, :positive)
     buffer = setup_domainbuffer(DomainSpec(dh, m, cv))
