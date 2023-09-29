@@ -1,51 +1,21 @@
 using Ferrite, FerriteProblems, FerriteAssembly, FESolvers
 import FerriteProblems as FP
 import FerriteAssembly as FA
+import FerriteAssembly.ExampleElements: TransientFourier
 
-@kwdef struct FourierMaterial{T}
-    k::T=1.0e-3    # Thermal conductivity
-    f::T=5.0e-1    # Constant heat source
-end
-
-function FerriteAssembly.element_routine!(
-    Ke, re, state, ue, m::FourierMaterial, cellvalues, buffer
-    )
-    Δt = FA.get_time_increment(buffer)
-    ue_old = FA.get_aeold(buffer)
-    n_basefuncs = getnbasefunctions(cellvalues)
-    for q_point in 1:getnquadpoints(cellvalues)
-        dΩ = getdetJdV(cellvalues, q_point)
-        u = function_value(cellvalues, q_point, ue)
-        uold = function_value(cellvalues, q_point, ue_old)
-        ∇u = function_gradient(cellvalues, q_point, ue)
-        for i in 1:n_basefuncs
-            δN = shape_value(cellvalues, q_point, i)
-            ∇δN = shape_gradient(cellvalues, q_point, i)
-            re[i] += (δN * (u - uold - Δt * m.f) + Δt * m.k * ∇δN ⋅ ∇u) * dΩ
-            for j in 1:n_basefuncs
-                N = shape_value(cellvalues, q_point, j)
-                ∇N = shape_gradient(cellvalues, q_point, j)
-                Ke[i, j] += (δN*N + Δt * m.k * (∇δN ⋅ ∇N)) * dΩ
-            end
-        end
-    end
-end;
+material() = TransientFourier(#=k=#1.0-3, #=c=#1.0)
 
 function create_definition()
-    # **Grid**
     grid = generate_grid(Quadrilateral, (100, 100));
 
-    # **Cell values**
     cellvalues = CellScalarValues(
         QuadratureRule{2, RefCube}(2),
         Lagrange{2, RefCube, 1}());
 
-    # **Degrees of freedom**
-    # After this, we can define the `DofHandler` and distribute the DOFs of the problem.
     dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
 
-    # **Boundary conditions**
-    # Zero pressure on $\partial \Omega_1$ and linear ramp followed by constant pressure on $\partial \Omega_2$
+    # Boundary conditions
+    # Zero pressure on ∂Ω₁ and linear ramp followed by constant pressure on ∂Ω₂
     max_temp = 100; t_rise = 100
     ch = ConstraintHandler(dh);
     ∂Ω₁ = union(getfaceset.((grid,), ["left", "right"])...)
@@ -54,9 +24,13 @@ function create_definition()
     add!(ch, Dirichlet(:u, ∂Ω₂, (x, t) -> max_temp * clamp(t / t_rise, 0, 1)))
     close!(ch)
 
+    # Body load: constant heat source, f=5.0e-1
+    lh = LoadHandler(dh)
+    add!(lh, BodyLoad(:u, 2, Returns(5.0e-1)))
+
     # Create and return the `FEDefinition`
-    domainspec = DomainSpec(dh, FourierMaterial(), cellvalues)
-    return FEDefinition(domainspec; ch)
+    domainspec = DomainSpec(dh, material(), cellvalues)
+    return FEDefinition(domainspec; ch, lh)
 end;
 
 struct TH_PostProcessing{PVD}

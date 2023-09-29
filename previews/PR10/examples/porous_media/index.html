@@ -23,67 +23,9 @@ f_i^\mathrm{int,p} &amp;= \int_\Omega \delta N_i^\mathrm{p} [\alpha [\dot{\bolds
 using FerriteAssembly, FerriteProblems, FESolvers
 using MaterialModelsBase
 import FerriteProblems as FP
-import MaterialModelsBase as MMB</code></pre><h2 id="Physics"><a class="docs-heading-anchor" href="#Physics">Physics</a><a id="Physics-1"></a><a class="docs-heading-anchor-permalink" href="#Physics" title="Permalink"></a></h2><h3 id="Elastic-material"><a class="docs-heading-anchor" href="#Elastic-material">Elastic material</a><a id="Elastic-material-1"></a><a class="docs-heading-anchor-permalink" href="#Elastic-material" title="Permalink"></a></h3><p>For the elastic material, we just define the material following the <code>MaterialModelsBase.jl</code> interface:</p><pre><code class="language-julia hljs">struct Elastic{T} &lt;: AbstractMaterial
-    G::T
-    K::T
-    E4::SymmetricTensor{4,2,T,9}
-end
-function Elastic(;E=2.e3, ν=0.3)
-    G = E / 2(1 + ν)
-    K = E / 3(1 - 2ν)
-    I2 = one(SymmetricTensor{2,2})
-    I4vol = I2⊗I2
-    I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
-    E4 = 2G*I4dev + K*I4vol
-    return Elastic(G, K, E4)
-end;
-
-function MMB.material_response(m::Elastic, ϵ, args...; kwargs...)
-    σ = m.E4 ⊡ ϵ
-    return σ, m.E4, NoMaterialState()
-end;</code></pre><h3 id="Poroelastic-material"><a class="docs-heading-anchor" href="#Poroelastic-material">Poroelastic material</a><a id="Poroelastic-material-1"></a><a class="docs-heading-anchor-permalink" href="#Poroelastic-material" title="Permalink"></a></h3><p>For the poroelastic material, we reuse the elastic part from above, but add additionally required properties</p><pre><code class="language-julia hljs">struct PoroElastic{E&lt;:Elastic,T}
-    elastic::E
-    k::T    # [mm^4/Ns] Permeability
-    α::T    # [-] Biot&#39;s coefficient
-    β::T    # [1/MPa] Liquid bulk modulus
-end
-function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
-    return PoroElastic(elastic, k, α, β)
-end;</code></pre><p>And then we also have to define the specific element routine which we do by defining the residual and using autodiff to calculate the tangent</p><pre><code class="language-julia hljs">function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
-    cv_u = cv[:u] # Cellvalues for displacements
-    cv_p = cv[:p] # Cellvalues for the pressure
-    Δt = FerriteAssembly.get_time_increment(buffer)
-
-    ae_old = FerriteAssembly.get_aeold(buffer)  # Old element degrees of freedom
-    udofs = dof_range(buffer, :u)               # Element dof indices for displacements
-    pdofs = dof_range(buffer, :p)               # ELement dof indices for the pressure
-
-    # Assemble stiffness and force vectors
-    for q_point in 1:getnquadpoints(cv_u)
-        # Calculate variables in the current quadrature point
-        dΩ = getdetJdV(cv_u, q_point)
-        ϵ = function_symmetric_gradient(cv_u, q_point, ae, udofs)
-        ϵ_old = function_symmetric_gradient(cv_u, q_point, ae_old, udofs)
-        p = function_value(cv_p, q_point, ae, pdofs)
-        p_old = function_value(cv_p, q_point, ae_old, pdofs)
-        ∇p = function_gradient(cv_p, q_point, ae, pdofs)
-        pdot = (p-p_old)/Δt
-        div_udot = (tr(ϵ)-tr(ϵ_old))/Δt
-        σeff = material.elastic.E4 ⊡ ϵ
-
-        # Assemble residual contributions
-        for (iᵤ, Iᵤ) in pairs(udofs)
-            ∇δNu = shape_symmetric_gradient(cv_u, q_point, iᵤ)
-            div_δNu = shape_divergence(cv_u, q_point, iᵤ)
-            re[Iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
-        end
-        for (iₚ, Iₚ) in pairs(pdofs)
-            δNp = shape_value(cv_p, q_point, iₚ)
-            ∇δNp = shape_gradient(cv_p, q_point, iₚ)
-            re[Iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
-        end
-    end
-end;</code></pre><h2 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h2><h3 id="Mesh-import"><a class="docs-heading-anchor" href="#Mesh-import">Mesh import</a><a id="Mesh-import-1"></a><a class="docs-heading-anchor-permalink" href="#Mesh-import" title="Permalink"></a></h3><p>In this example, we import the mesh from the Abaqus input file, <a href="porous_media_0p75.inp"><code>porous_media_0p75.inp</code></a> using <code>FerriteMeshParser</code>&#39;s <code>get_ferrite_grid</code> function. (A finer mesh, <a href="porous_media_0p25.inp"><code>porous_media_0p25.inp</code></a>, is also available) We then create one cellset for each phase (solid and porous) for each element type. These 4 sets will later be used in their own <code>FieldHandler</code></p><pre><code class="language-julia hljs">function get_grid()
+import MaterialModelsBase as MMB
+import FerriteAssembly.ExampleElements: ElasticPlaneStrain, PoroElasticPlaneStrain</code></pre><h2 id="Physics"><a class="docs-heading-anchor" href="#Physics">Physics</a><a id="Physics-1"></a><a class="docs-heading-anchor-permalink" href="#Physics" title="Permalink"></a></h2><p>Both the elastic material and a poroelastic material is available in <code>FerriteAssembly.ExampleElements</code>:</p><pre><code class="language-julia hljs">elastic_material() = ElasticPlaneStrain(;E=2.e3, ν=0.3)
+poroelastic_material() = PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0, β=1/2e3)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">poroelastic_material (generic function with 1 method)</code></pre><h2 id="Problem-definition"><a class="docs-heading-anchor" href="#Problem-definition">Problem definition</a><a id="Problem-definition-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-definition" title="Permalink"></a></h2><h3 id="Mesh-import"><a class="docs-heading-anchor" href="#Mesh-import">Mesh import</a><a id="Mesh-import-1"></a><a class="docs-heading-anchor-permalink" href="#Mesh-import" title="Permalink"></a></h3><p>In this example, we import the mesh from the Abaqus input file, <a href="porous_media_0p75.inp"><code>porous_media_0p75.inp</code></a> using <code>FerriteMeshParser</code>&#39;s <code>get_ferrite_grid</code> function. (A finer mesh, <a href="porous_media_0p25.inp"><code>porous_media_0p25.inp</code></a>, is also available) We then create one cellset for each phase (solid and porous) for each element type. These 4 sets will later be used in their own <code>FieldHandler</code></p><pre><code class="language-julia hljs">function get_grid()
     # Import grid from abaqus mesh
     grid = get_ferrite_grid(joinpath(@__DIR__, &quot;porous_media&quot;, &quot;porous_media_0p75.inp&quot;))
 
@@ -127,24 +69,24 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
     # Solid domain with Triangle elements, quadratic displacement interpolation
     sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
     cv1 = CellVectorValues(qr3, ip3_quad, ip3_lin)
-    domains[&quot;solid3&quot;] = DomainSpec(sdh1, Elastic(), cv1)
+    domains[&quot;solid3&quot;] = DomainSpec(sdh1, elastic_material(), cv1)
 
     # Solid domain with Quadrilateral elements, quadratic displacement interpolation
     sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
     cv2 = CellVectorValues(qr4, ip4_quad, ip4_lin)
-    domains[&quot;solid4&quot;] = DomainSpec(sdh2, Elastic(), cv2)
+    domains[&quot;solid4&quot;] = DomainSpec(sdh2, elastic_material(), cv2)
 
     # Porous domain with Triangle elements
     # Taylor hood: (quadratic displacement and linear pressure interpolation)
     sdh3 = FerriteAssembly.SubDofHandler(dh, fh3)
     cv3 = (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin))
-    domains[&quot;porous3&quot;] = DomainSpec(sdh3, PoroElastic(), cv3)
+    domains[&quot;porous3&quot;] = DomainSpec(sdh3, poroelastic_material(), cv3)
 
     # Porous domain with Quadrilateral elements
     # Taylor hood: (quadratic displacement and linear pressure interpolation)
     sdh4 = FerriteAssembly.SubDofHandler(dh, fh4)
     cv4 = (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin))
-    domains[&quot;porous4&quot;] = DomainSpec(sdh4, PoroElastic(), cv4)
+    domains[&quot;porous4&quot;] = DomainSpec(sdh4, poroelastic_material(), cv4)
 
     # Add boundary conditions
     ch = ConstraintHandler(dh);
@@ -184,72 +126,10 @@ using FerriteAssembly, FerriteProblems, FESolvers
 using MaterialModelsBase
 import FerriteProblems as FP
 import MaterialModelsBase as MMB
+import FerriteAssembly.ExampleElements: ElasticPlaneStrain, PoroElasticPlaneStrain
 
-struct Elastic{T} &lt;: AbstractMaterial
-    G::T
-    K::T
-    E4::SymmetricTensor{4,2,T,9}
-end
-function Elastic(;E=2.e3, ν=0.3)
-    G = E / 2(1 + ν)
-    K = E / 3(1 - 2ν)
-    I2 = one(SymmetricTensor{2,2})
-    I4vol = I2⊗I2
-    I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
-    E4 = 2G*I4dev + K*I4vol
-    return Elastic(G, K, E4)
-end;
-
-function MMB.material_response(m::Elastic, ϵ, args...; kwargs...)
-    σ = m.E4 ⊡ ϵ
-    return σ, m.E4, NoMaterialState()
-end;
-
-struct PoroElastic{E&lt;:Elastic,T}
-    elastic::E
-    k::T    # [mm^4/Ns] Permeability
-    α::T    # [-] Biot&#39;s coefficient
-    β::T    # [1/MPa] Liquid bulk modulus
-end
-function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
-    return PoroElastic(elastic, k, α, β)
-end;
-
-function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
-    cv_u = cv[:u] # Cellvalues for displacements
-    cv_p = cv[:p] # Cellvalues for the pressure
-    Δt = FerriteAssembly.get_time_increment(buffer)
-
-    ae_old = FerriteAssembly.get_aeold(buffer)  # Old element degrees of freedom
-    udofs = dof_range(buffer, :u)               # Element dof indices for displacements
-    pdofs = dof_range(buffer, :p)               # ELement dof indices for the pressure
-
-    # Assemble stiffness and force vectors
-    for q_point in 1:getnquadpoints(cv_u)
-        # Calculate variables in the current quadrature point
-        dΩ = getdetJdV(cv_u, q_point)
-        ϵ = function_symmetric_gradient(cv_u, q_point, ae, udofs)
-        ϵ_old = function_symmetric_gradient(cv_u, q_point, ae_old, udofs)
-        p = function_value(cv_p, q_point, ae, pdofs)
-        p_old = function_value(cv_p, q_point, ae_old, pdofs)
-        ∇p = function_gradient(cv_p, q_point, ae, pdofs)
-        pdot = (p-p_old)/Δt
-        div_udot = (tr(ϵ)-tr(ϵ_old))/Δt
-        σeff = material.elastic.E4 ⊡ ϵ
-
-        # Assemble residual contributions
-        for (iᵤ, Iᵤ) in pairs(udofs)
-            ∇δNu = shape_symmetric_gradient(cv_u, q_point, iᵤ)
-            div_δNu = shape_divergence(cv_u, q_point, iᵤ)
-            re[Iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
-        end
-        for (iₚ, Iₚ) in pairs(pdofs)
-            δNp = shape_value(cv_p, q_point, iₚ)
-            ∇δNp = shape_gradient(cv_p, q_point, iₚ)
-            re[Iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
-        end
-    end
-end;
+elastic_material() = ElasticPlaneStrain(;E=2.e3, ν=0.3)
+poroelastic_material() = PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0, β=1/2e3)
 
 function get_grid()
     # Import grid from abaqus mesh
@@ -297,24 +177,24 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     # Solid domain with Triangle elements, quadratic displacement interpolation
     sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
     cv1 = CellVectorValues(qr3, ip3_quad, ip3_lin)
-    domains[&quot;solid3&quot;] = DomainSpec(sdh1, Elastic(), cv1)
+    domains[&quot;solid3&quot;] = DomainSpec(sdh1, elastic_material(), cv1)
 
     # Solid domain with Quadrilateral elements, quadratic displacement interpolation
     sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
     cv2 = CellVectorValues(qr4, ip4_quad, ip4_lin)
-    domains[&quot;solid4&quot;] = DomainSpec(sdh2, Elastic(), cv2)
+    domains[&quot;solid4&quot;] = DomainSpec(sdh2, elastic_material(), cv2)
 
     # Porous domain with Triangle elements
     # Taylor hood: (quadratic displacement and linear pressure interpolation)
     sdh3 = FerriteAssembly.SubDofHandler(dh, fh3)
     cv3 = (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin))
-    domains[&quot;porous3&quot;] = DomainSpec(sdh3, PoroElastic(), cv3)
+    domains[&quot;porous3&quot;] = DomainSpec(sdh3, poroelastic_material(), cv3)
 
     # Porous domain with Quadrilateral elements
     # Taylor hood: (quadratic displacement and linear pressure interpolation)
     sdh4 = FerriteAssembly.SubDofHandler(dh, fh4)
     cv4 = (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin))
-    domains[&quot;porous4&quot;] = DomainSpec(sdh4, PoroElastic(), cv4)
+    domains[&quot;porous4&quot;] = DomainSpec(sdh4, poroelastic_material(), cv4)
 
     # Add boundary conditions
     ch = ConstraintHandler(dh);
@@ -355,4 +235,4 @@ problem = FerriteProblem(create_definition(), PM_PostProcess())
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x-&gt;x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.0 on <span class="colophon-date" title="Thursday 28 September 2023 20:49">Thursday 28 September 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../incompressible_elasticity/">« Incompressible Elasticity</a><a class="docs-footer-nextpage" href="../../internals/">Internals »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.0 on <span class="colophon-date" title="Friday 29 September 2023 07:09">Friday 29 September 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

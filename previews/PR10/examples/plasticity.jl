@@ -1,9 +1,8 @@
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteAssembly
 import FerriteProblems as FP
+import FerriteAssembly.ExampleElements: J2Plasticity
 using Plots; gr();
-
-include("J2Plasticity.jl");
 
 struct VectorRamp{dim,T}<:Function
     ramp::Vec{dim,T}
@@ -11,8 +10,8 @@ end
 (vr::VectorRamp)(x, t, n) = t*vr.ramp
 const traction_function = VectorRamp(Vec(0.0, 0.0, 1.e7))
 function setup_problem_definition()
-    # Define material properties ("J2Plasticity.jl" file)
-    material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
+    # Define material properties
+    material = J2Plasticity(;E=200.0e9, ν=0.3, σ0=200.e6, H=10.0e9)
 
     # CellValues
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())

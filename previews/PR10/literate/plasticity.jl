@@ -9,21 +9,15 @@
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
 using FerriteProblems, FESolvers, FerriteAssembly
 import FerriteProblems as FP
+import FerriteAssembly.ExampleElements: J2Plasticity
 using Plots; gr();
 
-# We then define the material by including the definitions used in the original 
+# The material from the original 
 # [example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/),
-# by using the [J2Plasticity.jl file](J2Plasticity.jl). We have modified the 
-# names and functions to comply with 
+# is available in `FerriteAssembly.ExampleElements` as `J2Plasticity`, 
+# serving as an example of a material that complies with the  
 # [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl)
-include("J2Plasticity.jl");
-
-# This file defines the 
-# * `J2Plasticity<:AbstractMaterial` material type with the constructor `J2Plasticity(E,ν,σy0,H)`
-# * State variable struct `J2PlasticityMaterialState<:AbstractMaterialState`
-# * The MaterialModelsBase function `initial_material_state` and `material_response`
-# Support for a single material according to the `MaterialModelsBase` interface is supported directly 
-# by `FerriteAssembly.jl`
+# interface.
 
 # ## Problem definition
 # We first create the problem's definition. 
@@ -35,8 +29,8 @@ end
 (vr::VectorRamp)(x, t, n) = t*vr.ramp
 const traction_function = VectorRamp(Vec(0.0, 0.0, 1.e7))
 function setup_problem_definition()
-    ## Define material properties ("J2Plasticity.jl" file)
-    material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
+    ## Define material properties
+    material = J2Plasticity(;E=200.0e9, ν=0.3, σ0=200.e6, H=10.0e9)
     
     ## CellValues
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
