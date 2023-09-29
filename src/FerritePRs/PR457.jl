@@ -10,10 +10,10 @@ function global_dof_range(dh::DofHandler, field_name::Symbol)
 end
 function _global_dof_range!(dofs, sdh::SubDofHandler, field_name)
     cellset = getcellset(sdh)
-    eldofs = celldofs(dh, first(cellset))
+    eldofs = celldofs(sdh, first(cellset))
     field_range = dof_range(sdh, field_name)
     for i in cellset
-        celldofs!(eldofs, dh, i)
+        celldofs!(eldofs, sdh, i)
         for j in field_range
             @inbounds d = eldofs[j]
             d in dofs || push!(dofs, d)
