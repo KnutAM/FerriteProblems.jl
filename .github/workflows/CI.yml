@@ -42,7 +42,6 @@ jobs:
             packages = [
               PackageSpec(;url="https://github.com/KnutAM/FESolvers.jl.git"),
               PackageSpec(;url="https://github.com/KnutAM/FerriteAssembly.jl.git"),
-              PackageSpec(;url="https://github.com/KnutAM/FerriteNeumann.jl.git"),
               PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
               ]
             Pkg.add(packages)
@@ -70,11 +69,10 @@ jobs:
             packages = [
               PackageSpec(;url="https://github.com/KnutAM/FESolvers.jl.git"),
               PackageSpec(;url="https://github.com/KnutAM/FerriteAssembly.jl.git"),
-              PackageSpec(;url="https://github.com/KnutAM/FerriteNeumann.jl.git"),
               PackageSpec(;url="https://github.com/KnutAM/MaterialModelsBase.jl.git"),
               PackageSpec(path=pwd())
               ]
-            Pkg.add(packages)
+            Pkg.develop(packages)
             Pkg.instantiate()'
         shell: bash
       - uses: julia-actions/julia-docdeploy@v1

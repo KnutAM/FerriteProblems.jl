@@ -8,7 +8,7 @@
 #md # [section](@ref incompressible_elasticity-plain-program).
 
 using Ferrite
-using FerriteNeumann, FerriteAssembly, FerriteProblems
+using FerriteAssembly, FerriteProblems
 using FESolvers
 import FerriteProblems as FP
 import FerriteAssembly as FA
@@ -85,13 +85,14 @@ function create_definition(ν, ip_u, ip_p)
     cv_u, cv_p, fv = create_values(ip_u, ip_p)
     cv = (u=cv_u, p=cv_p)   # Create NamedTuple
 
-    nh = NeumannHandler(dh)
-    add!(nh, Neumann(:u, fv, getfaceset(grid, "traction"), (x,t,n)->Vec{2}((0.0, 1/16))))
+    lh = LoadHandler(dh)
+    add!(lh, Neumann(:u, fv, getfaceset(grid, "traction"), (x,t,n)->Vec{2}((0.0, 1/16))))
 
     m = LinearElasticity(;Emod=1.0, ν=ν)
     
     ## Create and return the `FEDefinition`
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=m)
+    domainspec = DomainSpec(dh, m, cv)
+    return FEDefinition(domainspec; ch, lh)
 end;
 
 # ## Physics (element routine)
@@ -111,7 +112,7 @@ function FerriteAssembly.element_routine!(
     pdofs = dof_range(buffer, :p)
 
     ## Extract cached gradients
-    ∇Nu_sym_dev = FA.get_cache(buffer)
+    ∇Nu_sym_dev = FA.get_user_cache(buffer)
 
     ## We only assemble lower half triangle of the stiffness matrix and then symmetrize it.
     for q_point in 1:getnquadpoints(cellvalues_u)
@@ -149,13 +150,13 @@ function symmetrize_lower!(K)
 end;
 
 # ## Postprocessing
-struct PostProcessing
+struct IE_PostProcessing
     vtk_file::String
 end
 
-function FESolvers.postprocess!(post::PostProcessing, p, step, solver)
+function FESolvers.postprocess!(post::IE_PostProcessing, p, step, solver)
     step == 1 && return nothing # We don't want to save the initial conditions. 
-    dh = FP.getdh(p)
+    dh = FP.get_dofhandler(p)
     vtk_grid(post.vtk_file, dh) do vtkfile
         vtk_point_data(vtkfile, dh, FP.getunknowns(p))
     end
@@ -165,7 +166,7 @@ end;
 function build_problem(ν, ip_u, ip_p)
     def = create_definition(ν, ip_u, ip_p)
     ip_u_string = isa(ip_u, Lagrange{2,RefTetrahedron,1}) ? "linear" : "quadratic"
-    post = PostProcessing("cook_$(ip_u_string)_linear")
+    post = IE_PostProcessing("cook_$(ip_u_string)_linear")
     return FerriteProblem(def, post)
 end
 

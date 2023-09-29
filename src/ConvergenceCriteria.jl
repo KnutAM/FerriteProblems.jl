@@ -49,7 +49,7 @@ The default convergence criterion that calculates the convergence measure as
 struct AbsoluteResidual <: ConvergenceCriterion end
 
 function FESolvers.calculate_convergence_measure(::AbsoluteResidual, ts, r, Δa, iter, p)
-    sqrt(sum(i->r[i]^2, Ferrite.free_dofs(getch(p))))
+    sqrt(sum(i->r[i]^2, Ferrite.free_dofs(get_constrainthandler(p))))
 end
 
 """
@@ -77,12 +77,12 @@ struct RelativeResidualElementScaling{T,F<:Union{AbstractFloat,Dict{Symbol},Name
 end 
 RelativeResidualElementScaling(;p=Val(2), minfactors=eps()) = RelativeResidualElementScaling(p, minfactors)
 
-make_assemscaling(criterion::RelativeResidualElementScaling, def) = ElementResidualScaling(getdh(def), criterion.p)
+make_assemscaling(criterion::RelativeResidualElementScaling, def) = ElementResidualScaling(get_dofhandler(def), criterion.p)
 
 function TolScaling(criterion::RelativeResidualElementScaling, def)
-    dh = getdh(def)
+    dh = get_dofhandler(def)
     assemscaling = make_assemscaling(criterion, def)
-    fdofs = Ferrite.free_dofs(getch(def))
+    fdofs = Ferrite.free_dofs(get_constrainthandler(def))
     buffer = Dict(key=>intersect!(global_dof_range(dh, key), fdofs) for key in Ferrite.getfieldnames(dh))
     return TolScaling(criterion, assemscaling, buffer)
 end

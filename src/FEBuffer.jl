@@ -4,46 +4,43 @@
 A buffer to hold all values that are required to simulate, 
 but that are uniqely defined from the simulation definition
 """
-mutable struct FEBuffer{T,KT<:AbstractMatrix{T},AB,ST,TS} # internal 
+mutable struct FEBuffer{T,KT<:AbstractMatrix,VT<:AbstractVector,DB,TS} # internal 
     const K::KT
-    const x::Vector{T}
-    const r::Vector{T}
-    const f::Vector{T}
-    const xold::Vector{T}
-    const assembly_buffer::AB   # Buffer from FerriteAssembly.setup_assembly
-    const state::ST             # Also following output 
-    const old_state::ST         # from setup_assembly
+    const x::VT
+    const r::VT
+    const f::VT
+    const xold::VT
+    domain_buffer::DB # DomainBuffer from FerriteAssembly.setup_domainbuffer[s]
     time::T
     old_time::T
     const tolscaling::TS
 end
 
-function FEBuffer(def::FEDefinition)
-    n = ndofs(getdh(def))
-    K = create_sparsity_pattern(getdh(def), getch(def))
+function FEBuffer(def::FEDefinition; kwargs...)
+    dh = get_dofhandler(def)
+    ch = get_constrainthandler(def)
+    n = ndofs(dh)
+    K = create_sparsity_pattern(dh, ch)
     x, r, f = zeros.((n,n,n))
     ic = def.initial_conditions # ::NamedTuple 
-    foreach((field_name, fun)->apply_analytical!(x, getdh(def), field_name, fun), keys(ic), values(ic))
+    foreach((field_name, fun)->apply_analytical!(x, dh, field_name, fun), keys(ic), values(ic))
     xold = deepcopy(x)
-    buffer, new_state, old_state = _setup_assembly(def, def.domains; a=x)
+    buffer = _setup_assembly(def.domains; a=x, kwargs...)
     time = 0.0
     old_time = 0.0
     tol_scaling = TolScaling(def.convergence_criterion, def)
-    return FEBuffer(K, x, r, f, xold, buffer, new_state, old_state, time, old_time, tol_scaling)
+    return FEBuffer(K, x, r, f, xold, buffer, time, old_time, tol_scaling)
 end
 
-function _setup_assembly(def::FEDefinition, d::AssemblyDomain; a)
-    return setup_assembly(d.sdh, d.material, d.cellvalues; 
-        a=a, threading=def.threading, autodiffbuffer=def.autodiffbuffer,
-        cellset=d.cellset, colors=d.colors, user_data=d.user_data
-        )
+function _setup_assembly(db::DomainSpec; a, kwargs...)
+    return setup_domainbuffer(db; a, kwargs...)
 end
-function _setup_assembly(def::FEDefinition, d::Vector{<:AssemblyDomain}; a)
-    return setup_assembly(d; a=a, threading=def.threading, autodiffbuffer=def.autodiffbuffer)
+function _setup_assembly(db::Dict{String,<:DomainSpec}; a, kwargs...)
+    return setup_domainbuffers(db; a, kwargs...)
 end
 
 # Standard get functions
-getassemblybuffer(b::FEBuffer) = b.assembly_buffer
+getassemblybuffer(b::FEBuffer) = b.domain_buffer
 """
     FerriteProblems.get_material(p::FerriteProblem)
     FerriteProblems.get_material(p::FerriteProblem, domain_name::String)
@@ -53,10 +50,20 @@ for where to get the material. Note that this is type-unstable and should be avo
 performance-critical code sections. This function belongs to `FerriteAssembly.jl`, 
 but can be accessed via `FerriteProblems.get_material`.
 """
-FerriteAssembly.get_material(b::FEBuffer{<:Any,<:Any,<:FerriteAssembly.AbstractDomainBuffer}) = get_material(getassemblybuffer(b))
-FerriteAssembly.get_material(b::FEBuffer{<:Any,<:Any,<:Dict{String}}, name::String) = get_material(getassemblybuffer(b), name)
-function FerriteAssembly.get_material(::FEBuffer{<:Any,<:Any,<:Dict{String}})
-    throw(ArgumentError("get_material requires the domain name for multiple domain simulations"))
+get_material(b::FEBuffer, args...) = get_material(getassemblybuffer(b), args...)
+
+"""
+    set_jacobian_type(material, type)
+
+Define this function for your material, and the type given by `FESolvers.UpdateSpec` 
+when the solver asks for different jacobian calculation. The function should return the 
+modified material according to the given type. See `CustomStiffness` for an example, or 
+use this wrapper directly if that is sufficient. 
+"""
+set_jacobian_type(material, type) = material # Default to not implemented, silently doing nothing if not supported.
+
+function change_material_jacobian_type!(b::FEBuffer, type)
+    b.domain_buffer = FerriteAssembly.replace_material(b.domain_buffer, m->set_jacobian_type(m, type))
 end
 
 """
@@ -94,7 +101,7 @@ Neumann boundary conditions. Note that this vector
 does not include external forces added during the 
 cell assembly; only forces added with the `NeumannHandler`
 """
-getneumannforce(b::FEBuffer) = b.f 
+get_external_force(b::FEBuffer) = b.f 
 
 """
     FerriteProblems.get_tolerance_scaling(p::FerriteProblem)
@@ -108,11 +115,11 @@ get_tolerance_scaling(b::FEBuffer) = b.tolscaling
 # Variables that will also be updated via special functions
 # Unknowns 
 """
-    FerriteProblems.getoldunknowns(p::FerriteProblem)
+    FerriteProblems.get_old_unknowns(p::FerriteProblem)
 
 Get the vector of unknowns from the previously converged step
 """
-getoldunknowns(b::FEBuffer) = b.xold 
+get_old_unknowns(b::FEBuffer) = b.xold 
 
 """
     FerriteProblems.update_unknowns!(p::FerriteProblem)
@@ -123,33 +130,33 @@ update_unknowns!(b::FEBuffer) = copy!(b.xold, b.x) # internal
 
 # State variables
 """
-    FerriteProblems.getstate(p::FerriteProblem)
+    FerriteProblems.get_state(p::FerriteProblem)
 
 Get the current state variables
 """
-getstate(b::FEBuffer) = b.state
+get_state(b::FEBuffer) = get_state(getassemblybuffer(b))
 
 """
     FerriteProblems.getoldstate(p::FerriteProblem)
 
 Get the state variables from the previously converged step
 """
-getoldstate(b::FEBuffer) = b.old_state
+get_old_state(b::FEBuffer) = get_old_state(getassemblybuffer(b))
 
 # Time
 """
-    FerriteProblems.gettime(p::FerriteProblem)
+    FerriteProblems.get_time(p::FerriteProblem)
 
 Get the current time
 """
-gettime(b::FEBuffer) = b.time
+get_time(b::FEBuffer) = b.time
 
 """
     FerriteProblems.getoldtime(p::FerriteProblem)
 
 Get time of the previous converged step
 """
-getoldtime(b::FEBuffer) = b.old_time
+get_old_time(b::FEBuffer) = b.old_time
 
 """
     FerriteProblems.settime!(p::FerriteProblem, new_time)
@@ -158,7 +165,7 @@ Set the current time to `new_time`
 Called when starting a new step (or when attempting the same 
 step number with a new time increment)
 """
-settime!(b::FEBuffer, new_time) = (b.time = new_time) # internal
+set_time!(b::FEBuffer, new_time) = (b.time = new_time) # internal
 
 """
     FerriteProblems.update_time!(p::FerriteProblem)
@@ -166,4 +173,4 @@ settime!(b::FEBuffer, new_time) = (b.time = new_time) # internal
 Update the old time to the current time. 
 Called after convergence
 """
-update_time!(b::FEBuffer) = (b.old_time = gettime(b)) # internal
+update_time!(b::FEBuffer) = (b.old_time = get_time(b)) # internal
