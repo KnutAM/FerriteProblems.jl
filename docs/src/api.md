@@ -34,19 +34,19 @@ FerriteProblems.make_assemscaling
 
 ## Access functions
 ```@docs
-FerriteProblems.getdh
-FerriteProblems.getch
-FerriteProblems.getnh
+FerriteProblems.get_dofhandler
+FerriteProblems.get_constrainthandler
+FerriteProblems.get_loadhandler
 FerriteProblems.get_material
 FerriteProblems.getjacobian
 FerriteProblems.getunknowns
 FerriteProblems.getresidual
-FerriteProblems.getneumannforce
-FerriteProblems.getoldunknowns
-FerriteProblems.getstate
-FerriteProblems.getoldstate
-FerriteProblems.gettime
-FerriteProblems.getoldtime
+FerriteProblems.get_external_force
+FerriteProblems.get_old_unknowns
+FerriteProblems.get_state
+FerriteProblems.get_old_state
+FerriteProblems.get_time
+FerriteProblems.get_old_time
 ```
 
 ## Saving and loading data

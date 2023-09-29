@@ -7,23 +7,17 @@
 # 
 # First we need to load all required packages
 using Ferrite, Tensors, SparseArrays, LinearAlgebra
-using FerriteProblems, FESolvers, FerriteNeumann, FerriteAssembly
+using FerriteProblems, FESolvers, FerriteAssembly
 import FerriteProblems as FP
+import FerriteAssembly.ExampleElements: J2Plasticity
 using Plots; gr();
 
-# We then define the material by including the definitions used in the original 
+# The material from the original 
 # [example](https://ferrite-fem.github.io/Ferrite.jl/stable/examples/plasticity/),
-# by using the [J2Plasticity.jl file](J2Plasticity.jl). We have modified the 
-# names and functions to comply with 
+# is available in `FerriteAssembly.ExampleElements` as `J2Plasticity`, 
+# serving as an example of a material that complies with the  
 # [`MaterialModelsBase.jl`](https://github.com/KnutAM/MaterialModelsBase.jl)
-include("J2Plasticity.jl");
-
-# This file defines the 
-# * `J2Plasticity<:AbstractMaterial` material type with the constructor `J2Plasticity(E,ν,σy0,H)`
-# * State variable struct `J2PlasticityMaterialState<:AbstractMaterialState`
-# * The MaterialModelsBase function `initial_material_state` and `material_response`
-# Support for a single material according to the `MaterialModelsBase` interface is supported directly 
-# by `FerriteAssembly.jl`
+# interface.
 
 # ## Problem definition
 # We first create the problem's definition. 
@@ -35,8 +29,8 @@ end
 (vr::VectorRamp)(x, t, n) = t*vr.ramp
 const traction_function = VectorRamp(Vec(0.0, 0.0, 1.e7))
 function setup_problem_definition()
-    ## Define material properties ("J2Plasticity.jl" file)
-    material = J2Plasticity(200.0e9, 0.3, 200.e6, 10.0e9)
+    ## Define material properties
+    material = J2Plasticity(;E=200.0e9, ν=0.3, σ0=200.e6, H=10.0e9)
     
     ## CellValues
     cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
@@ -50,12 +44,13 @@ function setup_problem_definition()
     add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{3})), [1, 2, 3]))
     close!(ch)
 
-    ## Neumann boundary conditions (`FerriteNeumann.jl`)
-    nh = NeumannHandler(dh)
+    ## Neumann boundary conditions
+    lh = LoadHandler(dh)
     quad_order = 3
-    add!(nh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
+    add!(lh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
 
-    return FEDefinition(;dh=dh, ch=ch, nh=nh, cellvalues=cv, material=material)
+    domainspec = DomainSpec(dh, material, cv)
+    return FEDefinition(domainspec; ch, lh)
 end;
 
 # For the problem at hand, `FerriteAssembly.element_routine!` is defined in `FerriteAssembly.jl`.
@@ -82,7 +77,7 @@ PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     ## p::FerriteProblem
     ## First, we save some values directly in the `post` struct
-    push!(post.tmag, traction_function(zero(Vec{3}), FP.gettime(p), zero(Vec{3}))[3])
+    push!(post.tmag, traction_function(zero(Vec{3}), FP.get_time(p), zero(Vec{3}))[3])
     push!(post.umag, maximum(abs, FP.getunknowns(p)))
 
     ## Second, we save some results to file
@@ -91,7 +86,7 @@ function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
     ## * Save the dof values (only displacments in this case)
     FP.savedofdata!(p.io, FP.getunknowns(p))
     ## * Save the state in each integration point
-    FP.saveipdata!(p.io, FP.getstate(p), "state")
+    FP.saveipdata!(p.io, FP.get_state(p), "state")
 end;
 
 # We also define a helper function to plot the results after completion

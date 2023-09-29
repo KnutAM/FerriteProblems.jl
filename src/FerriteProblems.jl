@@ -1,12 +1,12 @@
 module FerriteProblems
-import Base: @kwdef # Support julia <1.9
+import Base: @kwdef # Support julia <1.9import Base: @kwdef # Support julia <1.9
 using Printf
 using FileIO, JLD2
 using Ferrite
-using FESolvers, FerriteAssembly, FerriteNeumann
+using FESolvers, FerriteAssembly
 import FESolvers: getunknowns, getresidual, getjacobian 
-import FerriteAssembly: get_material
 export FerriteProblem, FEDefinition, FerriteIO
+import FerriteAssembly: get_dofhandler, get_material, get_state, get_old_state
 
 include("FerritePRs/include_prs.jl")
 include("ConvergenceCriteria.jl")
@@ -23,24 +23,32 @@ struct FerriteProblem{DEF<:FEDefinition,POST,BUF<:FEBuffer,IOT}
 end
 
 """
-    FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
+    FerriteProblem(def::FEDefinition, post=nothing, io=nothing; kwargs...)
+    FerriteProblem(def::FEDefinition, post, savefolder::String; kwargs...)
     
 Create a FerriteProblem from [`def`](@ref FEDefinition).
 Postprocessing can be added as `post`, see [`FESolvers.postprocess!`](@ref).
-File input/output using `FerriteIO` can be added with `io`. 
-It is possible to give the folder where to save the output (i.e. io::String), 
-or to construct [`FerriteIO`](@ref) with more options directly.
+File input/output using [`FerriteIO`](@ref) can be added with `io`. 
+It is also possible to just give the `savefolder`, i.e. where 
+to save the output when the default `FerriteIO` can be used.
+
+Supported keyword arguments are
+* `autodiffbuffer::Bool`: Should `FerriteAssembly.jl`'s `AutoDiffCellBuffer` be used? 
+  This will make the assembly faster if automatic differentiation is used, and can also be used 
+  without automatic differentiation (but with a slight extra computational overhead)
+* `threading::Bool`: Should threading be used? 
 """
-function FerriteProblem(def::FEDefinition, post=nothing, io=nothing)
-    buf = FEBuffer(def)
+function FerriteProblem(def::FEDefinition, post=nothing, io=nothing; kwargs...)
+    buf = FEBuffer(def; kwargs...)
     FerriteProblem(def, post, buf, io)
 end
-function FerriteProblem(def::FEDefinition, post, savefolder::String)
-    FerriteProblem(def, post, FerriteIO(savefolder, def, post))
+function FerriteProblem(def::FEDefinition, post, savefolder::String; kwargs...)
+    FerriteProblem(def, post, FerriteIO(savefolder, def, post); kwargs...)
 end
 
 function Base.show(io::IO, p::FerriteProblem)
-    print(io, "FerriteProblem[ndofs=$(ndofs(getdh(p)))]")
+    n_dofs = ndofs(get_dofhandler(p))
+    print(io, "FerriteProblem[ndofs=$n_dofs]")
 end
 
 """
@@ -61,15 +69,18 @@ accounted for by defining, e.g.
 function FESolvers.postprocess!(p::FerriteProblem, step, solver)
     return FESolvers.postprocess!(p.post, p, step, solver)
 end
+function FESolvers.postprocess!(::Nothing, ::FerriteProblem, args...)
+    return nothing
+end
 
 # FEDefinition: Make functions work directly on `problem`:
-for op = (:getdh, :getch, :getnh)
+for op = (:get_dofhandler, :get_constrainthandler, :get_loadhandler)
     eval(quote
         $op(p::FerriteProblem) = $op(p.def)
     end)
 end
 
-    # FEBuffer: Make functions work directly on `problem`:
+# FEBuffer: Make functions work directly on `problem`:
 for op = (:getunknowns, :getresidual, :getjacobian)
     eval(quote
         FESolvers.$op(p::FerriteProblem) = FESolvers.$op(p.buf)
@@ -77,19 +88,19 @@ for op = (:getunknowns, :getresidual, :getjacobian)
 end
 
 for op = (
-    :getoldunknowns, :update_unknowns!, 
-    :getneumannforce,
+    :get_old_unknowns, :update_unknowns!, 
+    :get_external_force,
     :get_material, :getassemblybuffer,
     :get_tolerance_scaling,
-    :gettime, :getoldtime, :update_time!, :settime!, 
-    :getstate, :getoldstate)
+    :get_time, :get_old_time, :update_time!, :set_time!, 
+    :get_state, :get_old_state)
     eval(quote
         $op(p::FerriteProblem, args...) = $op(p.buf, args...)
     end)
 end
 
 function FerriteAssembly.update_states!(p::FerriteProblem)
-    update_states!(getoldstate(p), getstate(p))
+    update_states!(getassemblybuffer(p))
 end
 
 """
@@ -108,7 +119,7 @@ function FESolvers.close_problem(p::FerriteProblem)
     close_io(p.io, p.post)           # FerriteIO function for closing those streams
 end
 
-addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
+addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, get_time(p))
 
 # Actual FE-"work"
 # * update_to_next_step!
@@ -117,32 +128,28 @@ addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, gettime(p))
 # * handle_converged!
 
 function FESolvers.update_to_next_step!(p::FerriteProblem, time)
-    p.def.fesolverfuns.update_to_next_step!(p, time)
-end
-
-function fp_update_to_next_step!(p::FerriteProblem, time)
+    ch = get_constrainthandler(p)
     # Update the current time
-    settime!(p, time)
+    set_time!(p, time)
+    set_time_increment!(getassemblybuffer(p), get_time(p)-get_old_time(p))
 
     # Apply constraints, including Dirichlet BC
-    update!(getch(p), time)
-    apply!(FESolvers.getunknowns(p), getch(p))
+    update!(ch, time)
+    apply!(FESolvers.getunknowns(p), ch)
     
-    # Apply Neumann BC
-    f = getneumannforce(p)
+    # Apply external load
+    f = get_external_force(p)
     fill!(f, 0)
-    apply!(f, getnh(p), time)
-    apply_zero!(f, getch(p)) # Make force zero at constrained dofs (to be compatible with apply local)
+    apply!(f, get_loadhandler(p), time)
+    apply_zero!(f, ch) # Make force zero at constrained dofs (to be compatible with apply local)
 end
 
-function FESolvers.update_problem!(p::FerriteProblem, args...; kwargs...)
-    p.def.fesolverfuns.update_problem!(p, args...; kwargs...)
-end
-function fp_update_problem!(p::FerriteProblem, Δa, update_spec)
+function FESolvers.update_problem!(p::FerriteProblem, Δa, update_spec)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
+    ch = get_constrainthandler(p)
     if !isnothing(Δa)
-        apply_zero!(Δa, getch(p))
+        apply_zero!(Δa, ch)
         a .+= Δa
     end
     
@@ -154,16 +161,15 @@ function fp_update_problem!(p::FerriteProblem, Δa, update_spec)
     r = FESolvers.getresidual(p)
     if FESolvers.should_update_jacobian(update_spec) # Update both residual and jacobian
         scaling = get_tolerance_scaling(p).assemscaling
-        assembler = KeReAssembler(K, r; ch=getch(p), apply_zero=true, scaling=scaling)
+        assembler = KeReAssembler(K, r; scaling=scaling)
     elseif FESolvers.should_update_residual(update_spec) # update only residual
         assembler = ReAssembler(r; scaling=get_tolerance_scaling(p).assemscaling)
     else # Only update a
         return nothing
     end
-    map!(-, r, getneumannforce(p))
-    doassemble!(assembler, getstate(p), getassemblybuffer(p); 
-        a=a, aold=getoldunknowns(p), old_states=getoldstate(p), Δt=gettime(p)-getoldtime(p)
-        )
+    map!(-, r, get_external_force(p))
+    work!(assembler, getassemblybuffer(p); a, aold=get_old_unknowns(p))
+    apply_zero!(K, r, ch)
     return nothing
 end
 

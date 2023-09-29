@@ -13,7 +13,6 @@ The `FerriteProblems.jl` package brings together
 * [`Ferrite.jl`](https://github.com/Ferrite-FEM/Ferrite.jl)
 * [`FESolvers.jl`](https://github.com/KnutAM/FESolvers.jl)
 * [`FerriteAssembly.jl`](https://github.com/KnutAM/FerriteAssembly.jl)
-* [`FerriteNeumann.jl`](https://github.com/KnutAM/FerriteNeumann.jl)
 
 
 ## Installation

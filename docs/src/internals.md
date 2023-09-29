@@ -5,7 +5,7 @@
 FerriteProblems.FEBuffer
 FerriteProblems.get_tolerance_scaling
 FerriteProblems.update_unknowns!
-FerriteProblems.settime!
+FerriteProblems.set_time!
 FerriteProblems.update_time!
 FerriteProblems.filepath
 FerriteProblems.datafilepath

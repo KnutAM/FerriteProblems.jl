@@ -123,85 +123,16 @@
 # 
 # Required packages
 using Ferrite, FerriteMeshParser, Tensors
-using FerriteAssembly, FerriteProblems, FerriteNeumann, FESolvers
+using FerriteAssembly, FerriteProblems, FESolvers
 using MaterialModelsBase
 import FerriteProblems as FP
 import MaterialModelsBase as MMB
-
+import FerriteAssembly.ExampleElements: ElasticPlaneStrain, PoroElasticPlaneStrain
 # ## Physics
-# ### Elastic material 
-# For the elastic material, we just define the material following 
-# the `MaterialModelsBase.jl` interface:
-struct Elastic{T} <: AbstractMaterial
-    G::T
-    K::T
-    E4::SymmetricTensor{4,2,T,9}
-end
-function Elastic(;E=2.e3, ν=0.3)
-    G = E / 2(1 + ν)
-    K = E / 3(1 - 2ν)
-    I2 = one(SymmetricTensor{2,2})
-    I4vol = I2⊗I2
-    I4dev = minorsymmetric(otimesu(I2,I2)) - I4vol / 3
-    E4 = 2G*I4dev + K*I4vol
-    return Elastic(G, K, E4)
-end;
-
-function MMB.material_response(m::Elastic, ϵ, args...; kwargs...)
-    σ = m.E4 ⊡ ϵ
-    return σ, m.E4, NoMaterialState()
-end;
-
-# ### Poroelastic material
-# For the poroelastic material, we reuse the elastic part from above, 
-# but add additionally required properties 
-struct PoroElastic{E<:Elastic,T}
-    elastic::E
-    k::T    # [mm^4/Ns] Permeability
-    α::T    # [-] Biot's coefficient
-    β::T    # [1/MPa] Liquid bulk modulus
-end 
-function PoroElastic(;elastic=Elastic(), k=0.05, α=1.0, β=1/2e3)
-    return PoroElastic(elastic, k, α, β)
-end;
-
-# And then we also have to define the specific element routine 
-# which we do by defining the residual and using autodiff to calculate the tangent
-function FerriteAssembly.element_residual!(re, state, ae, material::PoroElastic, cv::NamedTuple, buffer)
-    cv_u = cv[:u] # Cellvalues for displacements
-    cv_p = cv[:p] # Cellvalues for the pressure
-    Δt = FerriteAssembly.get_time_increment(buffer)
-
-    ae_old = FerriteAssembly.get_aeold(buffer)  # Old element degrees of freedom
-    udofs = dof_range(buffer, :u)               # Element dof indices for displacements
-    pdofs = dof_range(buffer, :p)               # ELement dof indices for the pressure
-
-    ## Assemble stiffness and force vectors
-    for q_point in 1:getnquadpoints(cv_u)   
-        ## Calculate variables in the current quadrature point 
-        dΩ = getdetJdV(cv_u, q_point)
-        ϵ = function_symmetric_gradient(cv_u, q_point, ae, udofs)
-        ϵ_old = function_symmetric_gradient(cv_u, q_point, ae_old, udofs)
-        p = function_value(cv_p, q_point, ae, pdofs)
-        p_old = function_value(cv_p, q_point, ae_old, pdofs)
-        ∇p = function_gradient(cv_p, q_point, ae, pdofs)
-        pdot = (p-p_old)/Δt 
-        div_udot = (tr(ϵ)-tr(ϵ_old))/Δt
-        σeff = material.elastic.E4 ⊡ ϵ
-
-        ## Assemble residual contributions
-        for (iᵤ, Iᵤ) in pairs(udofs)
-            ∇δNu = shape_symmetric_gradient(cv_u, q_point, iᵤ)
-            div_δNu = shape_divergence(cv_u, q_point, iᵤ)
-            re[Iᵤ] += (∇δNu ⊡ σeff - div_δNu*material.α*p)*dΩ
-        end
-        for (iₚ, Iₚ) in pairs(pdofs)
-            δNp = shape_value(cv_p, q_point, iₚ)
-            ∇δNp = shape_gradient(cv_p, q_point, iₚ)
-            re[Iₚ] += (δNp*(material.α*div_udot + material.β*pdot) + (∇δNp ⋅ ∇p)*material.k) * dΩ
-        end
-    end
-end;
+# Both the elastic material and a poroelastic material is available in
+# `FerriteAssembly.ExampleElements`:
+elastic_material() = ElasticPlaneStrain(;E=2.e3, ν=0.3)
+poroelastic_material() = PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0, β=1/2e3)
 
 # ## Problem definition
 # ### Mesh import
@@ -254,29 +185,30 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     add!(dh, fh4)
     close!(dh)
 
-    ## Setup the AssemblyDomains
+    ## Setup each domain
+    domains = Dict{String,DomainSpec}()
     ## Solid domain with Triangle elements, quadratic displacement interpolation
     sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
     cv1 = CellVectorValues(qr3, ip3_quad, ip3_lin)
-    ad1 = AssemblyDomain("solid3", sdh1, Elastic(), cv1)
-
+    domains["solid3"] = DomainSpec(sdh1, elastic_material(), cv1)
+    
     ## Solid domain with Quadrilateral elements, quadratic displacement interpolation
     sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
     cv2 = CellVectorValues(qr4, ip4_quad, ip4_lin)
-    ad2 = AssemblyDomain("solid4", sdh2, Elastic(), cv2)
+    domains["solid4"] = DomainSpec(sdh2, elastic_material(), cv2)
 
     ## Porous domain with Triangle elements
     ## Taylor hood: (quadratic displacement and linear pressure interpolation)
     sdh3 = FerriteAssembly.SubDofHandler(dh, fh3)
     cv3 = (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin))
-    ad3 = AssemblyDomain("porous3", sdh3, PoroElastic(), cv3)
+    domains["porous3"] = DomainSpec(sdh3, poroelastic_material(), cv3)
 
     ## Porous domain with Quadrilateral elements
     ## Taylor hood: (quadratic displacement and linear pressure interpolation)
     sdh4 = FerriteAssembly.SubDofHandler(dh, fh4)
     cv4 = (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin))
-    ad4 = AssemblyDomain("porous4", sdh4, PoroElastic(), cv4)
-    
+    domains["porous4"] = DomainSpec(sdh4, poroelastic_material(), cv4)
+
     ## Add boundary conditions
     ch = ConstraintHandler(dh);
     ## Fix bottom in y and sides in x
@@ -287,35 +219,35 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     close!(ch)
 
     ## Add Neumann boundary conditions - normal traction on top
-    nh = NeumannHandler(dh);
-    add!(nh, Neumann(:u, 2, getfaceset(grid, "top"), (x,t,n) -> -n*clamp(t/t_rise,0,1)*p_max))
+    lh = LoadHandler(dh);
+    add!(lh, Neumann(:u, 2, getfaceset(grid, "top"), (x,t,n) -> -n*clamp(t/t_rise,0,1)*p_max))
 
-    return FEDefinition([ad1, ad2, ad3, ad4]; ch=ch, nh=nh)
+    return FEDefinition(domains; ch, lh)
 end;
 
 # ## Postprocessing
-struct PostProcess{PVD}
+struct PM_PostProcess{PVD}
     pvd::PVD
     filestem::String
 end
-function PostProcess(filestem="porous_media")
+function PM_PostProcess(filestem="porous_media")
     pvd = paraview_collection("$filestem.pvd")
-    return PostProcess(pvd, filestem)
+    return PM_PostProcess(pvd, filestem)
 end
 
-function FESolvers.postprocess!(post::PostProcess, p, step, solver)
-    vtk_grid("$(post.filestem)-$step", FP.getdh(p)) do vtk
-        vtk_point_data(vtk, FP.getdh(p), FP.getunknowns(p))
+function FESolvers.postprocess!(post::PM_PostProcess, p, step, solver)
+    vtk_grid("$(post.filestem)-$step", FP.get_dofhandler(p)) do vtk
+        vtk_point_data(vtk, FP.get_dofhandler(p), FP.getunknowns(p))
         vtk_save(vtk)
         post.pvd[step] = vtk 
     end
 end
 
-FP.close_postprocessing(post::PostProcess, args...) = vtk_save(post.pvd);
+FP.close_postprocessing(post::PM_PostProcess, args...) = vtk_save(post.pvd);
 
 # ## Solving
 # We solve the problem by using linearly increasing time steps
-problem = FerriteProblem(create_definition(), PostProcess())
+problem = FerriteProblem(create_definition(), PM_PostProcess())
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
