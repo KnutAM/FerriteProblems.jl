@@ -43,10 +43,11 @@ end
 # We do everything inside a do-block to ensure everything is closed at the end 
 # (even if an error is thrown)
 plts = FerriteIO("B/FerriteIO.jld2") do io
-    def = FP.getdef(io)
+    #def = FP.getdef(io)
+    def = setup_problem_definition() # temp solution while waiting for custom serialization.
     buf = FP.FEBuffer(def)
     post = FP.getpost(io);
-
+    
     ## Then, we get the time history and the displacement data saved to the `post` struct
     t_history = FP.gettimedata(io)
     u_mag = post.umag
