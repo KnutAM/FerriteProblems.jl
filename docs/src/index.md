@@ -3,9 +3,6 @@ CurrentModule = FerriteProblems
 ```
 
 # FerriteProblems
-
-Documentation for [FerriteProblems](https://github.com/KnutAM/FerriteProblems.jl).
-
 When using the `FESolvers.jl` package together with `Ferrite.jl`, 
 the user has to specify a `problem` to be solved. 
 The purpose of `FESolvers.jl` is to keep this as general as possible, 
@@ -16,9 +13,13 @@ This package brings together the
 package with 
 [`Ferrite.jl`](https://github.com/Ferrite-FEM/Ferrite.jl),
 using the 
-[`FerriteAssembly.jl`](https://github.com/KnutAM/FerriteAssembly.jl) for assembly and element interfaces. 
+[`FerriteAssembly.jl`](https://github.com/KnutAM/FerriteAssembly.jl) for assembly and element interfaces.
+
 There is also preliminary support for organizing your simulations 
-by saving both setup and results as `.jld2` using [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl)
+by saving both setup and results as `.jld2` using [`JLD2.jl`](https://github.com/JuliaIO/JLD2.jl).
+`FerriteProblems` also includes custom serialization for `Ferrite.jl` objects where necessary 
+(such as for the `DofHandler`). 
+This is *type piracy*, so if causing you any problems, please open an issue.  
 
 All unregistered dependencies, including `FerriteProblems.jl` itself, 
 is available in the [`knutamregistry`](https://github.com/KnutAM/knutamregistry)
