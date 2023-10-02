@@ -31,17 +31,17 @@ const traction_function = VectorRamp(Vec(0.0, 0.0, 1.e7))
 function setup_problem_definition()
     ## Define material properties
     material = J2Plasticity(;E=200.0e9, ν=0.3, σ0=200.e6, H=10.0e9)
-    
+    ip =  Lagrange{RefTetrahedron, 1}()^3
     ## CellValues
-    cv = CellVectorValues(QuadratureRule{3,RefTetrahedron}(2), Lagrange{3, RefTetrahedron, 1}())
+    cv = CellValues(QuadratureRule{RefTetrahedron}(2), ip)
 
     ## Grid and degrees of freedom (`Ferrite.jl`)
     grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
-    dh = DofHandler(grid); push!(dh, :u, 3); close!(dh)
+    dh = DofHandler(grid); push!(dh, :u, ip); close!(dh)
 
     ## Constraints (Dirichlet boundary conditions, `Ferrite.jl`)
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{3})), [1, 2, 3]))
+    add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{3}))))
     close!(ch)
 
     ## Neumann boundary conditions

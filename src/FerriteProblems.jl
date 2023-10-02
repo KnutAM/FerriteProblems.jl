@@ -15,6 +15,9 @@ include("FEBuffer.jl")
 include("IO.jl")
 include("CustomStiffness.jl")
 
+# WARNING: Type piracy. TODO: Put behind "fence" to at least be able to disable?
+include("JLD2_serialization.jl") 
+
 struct FerriteProblem{DEF<:FEDefinition,POST,BUF<:FEBuffer,IOT}
     def::DEF
     post::POST
