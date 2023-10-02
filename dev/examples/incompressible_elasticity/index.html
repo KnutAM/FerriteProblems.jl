@@ -13,26 +13,27 @@ import FerriteAssembly as FA</code></pre><h2 id="Problem-setup"><a class="docs-h
     addfaceset!(grid, &quot;clamped&quot;, x -&gt; norm(x[1]) ≈ 0.0);
     addfaceset!(grid, &quot;traction&quot;, x -&gt; norm(x[1]) ≈ 48.0);
     return grid
-end;</code></pre><p>Next we define a function to set up our cell- and facevalues.</p><pre><code class="language-julia hljs">function create_values(interpolation_u, interpolation_p)
+end;</code></pre><p>Next we define a function to set up our cell- and facevalues.</p><pre><code class="language-julia hljs">function create_values(ipu, ipp)
+    RefShape = Ferrite.getrefshape(ipu)
     # quadrature rules
-    qr      = QuadratureRule{2,RefTetrahedron}(3)
-    face_qr = QuadratureRule{1,RefTetrahedron}(3)
+    qr      = QuadratureRule{RefShape}(3)
+    face_qr = FaceQuadratureRule{RefShape}(3)
 
     # geometric interpolation
-    interpolation_geom = Lagrange{2,RefTetrahedron,1}()
+    ip_geo = Lagrange{RefShape,1}()
 
     # cell and facevalues for u
-    cellvalues_u = CellVectorValues(qr, interpolation_u, interpolation_geom)
-    facevalues_u = FaceVectorValues(face_qr, interpolation_u, interpolation_geom)
+    cellvalues_u = CellValues(qr, ipu, ip_geo)
+    facevalues_u = FaceValues(face_qr, ipu, ip_geo)
 
     # cellvalues for p
-    cellvalues_p = CellScalarValues(qr, interpolation_p, interpolation_geom)
+    cellvalues_p = CellValues(qr, ipp, ip_geo)
 
     return cellvalues_u, cellvalues_p, facevalues_u
 end;</code></pre><p>We create a DofHandler, with two fields, <code>:u</code> and <code>:p</code>, with possibly different interpolations</p><pre><code class="language-julia hljs">function create_dofhandler(grid, ipu, ipp)
     dh = DofHandler(grid)
-    push!(dh, :u, 2, ipu) # displacement
-    push!(dh, :p, 1, ipp) # pressure
+    add!(dh, :u, ipu) # displacement
+    add!(dh, :p, ipp) # pressure
     close!(dh)
     return dh
 end;</code></pre><p>The material is linear elastic, which is here specified by the shear and bulk moduli</p><pre><code class="language-julia hljs">struct LinearElasticity{T}
@@ -123,7 +124,7 @@ function FESolvers.postprocess!(post::IE_PostProcessing, p, step, solver)
     vtk_grid(post.vtk_file, dh) do vtkfile
         vtk_point_data(vtkfile, dh, FP.getunknowns(p))
     end
-end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><pre><code class="language-julia hljs">function build_problem(ν, ip_u, ip_p)
+end;</code></pre><h2 id="Solving-the-problem"><a class="docs-heading-anchor" href="#Solving-the-problem">Solving the problem</a><a id="Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem" title="Permalink"></a></h2><pre><code class="language-julia hljs">function build_problem(;ν, ip_u, ip_p)
     def = create_definition(ν, ip_u, ip_p)
     ip_u_string = isa(ip_u, Lagrange{2,RefTetrahedron,1}) ? &quot;linear&quot; : &quot;quadratic&quot;
     post = IE_PostProcessing(&quot;cook_$(ip_u_string)_linear&quot;)
@@ -134,8 +135,8 @@ solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTim
 ν = 0.4999999
 linear    = Lagrange{2,RefTetrahedron,1}()
 quadratic = Lagrange{2,RefTetrahedron,2}()
-p1 = build_problem(ν, linear, linear)
-p2 = build_problem(ν, quadratic, linear)
+p1 = build_problem(;ν, ip_u=linear^2,    ip_p=linear)
+p2 = build_problem(;ν, ip_u=quadratic^2, ip_p=linear)
 solve_problem!(p1, solver)
 solve_problem!(p2, solver)</code></pre><h2 id="incompressible_elasticity-plain-program"><a class="docs-heading-anchor" href="#incompressible_elasticity-plain-program">Plain program</a><a id="incompressible_elasticity-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#incompressible_elasticity-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../incompressible_elasticity.jl"><code>incompressible_elasticity.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite
 using FerriteAssembly, FerriteProblems
@@ -155,28 +156,29 @@ function create_cook_grid(nx, ny)
     return grid
 end;
 
-function create_values(interpolation_u, interpolation_p)
+function create_values(ipu, ipp)
+    RefShape = Ferrite.getrefshape(ipu)
     # quadrature rules
-    qr      = QuadratureRule{2,RefTetrahedron}(3)
-    face_qr = QuadratureRule{1,RefTetrahedron}(3)
+    qr      = QuadratureRule{RefShape}(3)
+    face_qr = FaceQuadratureRule{RefShape}(3)
 
     # geometric interpolation
-    interpolation_geom = Lagrange{2,RefTetrahedron,1}()
+    ip_geo = Lagrange{RefShape,1}()
 
     # cell and facevalues for u
-    cellvalues_u = CellVectorValues(qr, interpolation_u, interpolation_geom)
-    facevalues_u = FaceVectorValues(face_qr, interpolation_u, interpolation_geom)
+    cellvalues_u = CellValues(qr, ipu, ip_geo)
+    facevalues_u = FaceValues(face_qr, ipu, ip_geo)
 
     # cellvalues for p
-    cellvalues_p = CellScalarValues(qr, interpolation_p, interpolation_geom)
+    cellvalues_p = CellValues(qr, ipp, ip_geo)
 
     return cellvalues_u, cellvalues_p, facevalues_u
 end;
 
 function create_dofhandler(grid, ipu, ipp)
     dh = DofHandler(grid)
-    push!(dh, :u, 2, ipu) # displacement
-    push!(dh, :p, 1, ipp) # pressure
+    add!(dh, :u, ipu) # displacement
+    add!(dh, :p, ipp) # pressure
     close!(dh)
     return dh
 end;
@@ -277,7 +279,7 @@ function FESolvers.postprocess!(post::IE_PostProcessing, p, step, solver)
     end
 end;
 
-function build_problem(ν, ip_u, ip_p)
+function build_problem(;ν, ip_u, ip_p)
     def = create_definition(ν, ip_u, ip_p)
     ip_u_string = isa(ip_u, Lagrange{2,RefTetrahedron,1}) ? &quot;linear&quot; : &quot;quadratic&quot;
     post = IE_PostProcessing(&quot;cook_$(ip_u_string)_linear&quot;)
@@ -288,9 +290,9 @@ solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTim
 ν = 0.4999999
 linear    = Lagrange{2,RefTetrahedron,1}()
 quadratic = Lagrange{2,RefTetrahedron,2}()
-p1 = build_problem(ν, linear, linear)
-p2 = build_problem(ν, quadratic, linear)
+p1 = build_problem(;ν, ip_u=linear^2,    ip_p=linear)
+p2 = build_problem(;ν, ip_u=quadratic^2, ip_p=linear)
 solve_problem!(p1, solver)
 solve_problem!(p2, solver)
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../transient_heat/">« Linear Time Dependent Problem</a><a class="docs-footer-nextpage" href="../porous_media/">Porous media »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.0 on <span class="colophon-date" title="Friday 29 September 2023 07:51">Friday 29 September 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../transient_heat/">« Linear Time Dependent Problem</a><a class="docs-footer-nextpage" href="../porous_media/">Porous media »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.0 on <span class="colophon-date" title="Monday 2 October 2023 13:33">Monday 2 October 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

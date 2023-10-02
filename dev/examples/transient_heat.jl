@@ -7,12 +7,11 @@ material() = TransientFourier(#=k=#1.0-3, #=c=#1.0)
 
 function create_definition()
     grid = generate_grid(Quadrilateral, (100, 100));
+    ip = Lagrange{RefQuadrilateral,1}()
+    cellvalues = CellValues(
+        QuadratureRule{RefQuadrilateral}(2), ip);
 
-    cellvalues = CellScalarValues(
-        QuadratureRule{2, RefCube}(2),
-        Lagrange{2, RefCube, 1}());
-
-    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
 
     # Boundary conditions
     # Zero pressure on ∂Ω₁ and linear ramp followed by constant pressure on ∂Ω₂

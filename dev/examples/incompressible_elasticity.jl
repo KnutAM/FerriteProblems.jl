@@ -16,28 +16,29 @@ function create_cook_grid(nx, ny)
     return grid
 end;
 
-function create_values(interpolation_u, interpolation_p)
+function create_values(ipu, ipp)
+    RefShape = Ferrite.getrefshape(ipu)
     # quadrature rules
-    qr      = QuadratureRule{2,RefTetrahedron}(3)
-    face_qr = QuadratureRule{1,RefTetrahedron}(3)
+    qr      = QuadratureRule{RefShape}(3)
+    face_qr = FaceQuadratureRule{RefShape}(3)
 
     # geometric interpolation
-    interpolation_geom = Lagrange{2,RefTetrahedron,1}()
+    ip_geo = Lagrange{RefShape,1}()
 
     # cell and facevalues for u
-    cellvalues_u = CellVectorValues(qr, interpolation_u, interpolation_geom)
-    facevalues_u = FaceVectorValues(face_qr, interpolation_u, interpolation_geom)
+    cellvalues_u = CellValues(qr, ipu, ip_geo)
+    facevalues_u = FaceValues(face_qr, ipu, ip_geo)
 
     # cellvalues for p
-    cellvalues_p = CellScalarValues(qr, interpolation_p, interpolation_geom)
+    cellvalues_p = CellValues(qr, ipp, ip_geo)
 
     return cellvalues_u, cellvalues_p, facevalues_u
 end;
 
 function create_dofhandler(grid, ipu, ipp)
     dh = DofHandler(grid)
-    push!(dh, :u, 2, ipu) # displacement
-    push!(dh, :p, 1, ipp) # pressure
+    add!(dh, :u, ipu) # displacement
+    add!(dh, :p, ipp) # pressure
     close!(dh)
     return dh
 end;
@@ -138,7 +139,7 @@ function FESolvers.postprocess!(post::IE_PostProcessing, p, step, solver)
     end
 end;
 
-function build_problem(ν, ip_u, ip_p)
+function build_problem(;ν, ip_u, ip_p)
     def = create_definition(ν, ip_u, ip_p)
     ip_u_string = isa(ip_u, Lagrange{2,RefTetrahedron,1}) ? "linear" : "quadratic"
     post = IE_PostProcessing("cook_$(ip_u_string)_linear")
@@ -149,8 +150,8 @@ solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTim
 ν = 0.4999999
 linear    = Lagrange{2,RefTetrahedron,1}()
 quadratic = Lagrange{2,RefTetrahedron,2}()
-p1 = build_problem(ν, linear, linear)
-p2 = build_problem(ν, quadratic, linear)
+p1 = build_problem(;ν, ip_u=linear^2,    ip_p=linear)
+p2 = build_problem(;ν, ip_u=quadratic^2, ip_p=linear)
 solve_problem!(p1, solver)
 solve_problem!(p2, solver)
 

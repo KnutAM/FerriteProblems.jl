@@ -4,12 +4,11 @@ import FerriteProblems as FP
 import FerriteAssembly as FA
 import FerriteAssembly.ExampleElements: TransientFourier</code></pre><h2 id="Physics"><a class="docs-heading-anchor" href="#Physics">Physics</a><a id="Physics-1"></a><a class="docs-heading-anchor-permalink" href="#Physics" title="Permalink"></a></h2><p>The transient heat element, <code>TransientFourier</code>, is available from <code>FerriteAssembly.ExampleElements</code>, noting that in the original example, the heat capacity, c=1, is implicitly assumed.</p><pre><code class="language-julia hljs">material() = TransientFourier(#=k=#1.0-3, #=c=#1.0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">material (generic function with 1 method)</code></pre><p>The material doesn&#39;t include the heat source: We later add this with <code>FerriteAssembly</code>&#39;s <code>LoadHandler</code>, which works similar to the ConstraintHandler.</p><h2 id="Problem-setup"><a class="docs-heading-anchor" href="#Problem-setup">Problem setup</a><a id="Problem-setup-1"></a><a class="docs-heading-anchor-permalink" href="#Problem-setup" title="Permalink"></a></h2><p>We start by a function that will create the problem definition</p><pre><code class="language-julia hljs">function create_definition()
     grid = generate_grid(Quadrilateral, (100, 100));
+    ip = Lagrange{RefQuadrilateral,1}()
+    cellvalues = CellValues(
+        QuadratureRule{RefQuadrilateral}(2), ip);
 
-    cellvalues = CellScalarValues(
-        QuadratureRule{2, RefCube}(2),
-        Lagrange{2, RefCube, 1}());
-
-    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
 
     # Boundary conditions
     # Zero pressure on ∂Ω₁ and linear ramp followed by constant pressure on ∂Ω₂
@@ -68,12 +67,11 @@ material() = TransientFourier(#=k=#1.0-3, #=c=#1.0)
 
 function create_definition()
     grid = generate_grid(Quadrilateral, (100, 100));
+    ip = Lagrange{RefQuadrilateral,1}()
+    cellvalues = CellValues(
+        QuadratureRule{RefQuadrilateral}(2), ip);
 
-    cellvalues = CellScalarValues(
-        QuadratureRule{2, RefCube}(2),
-        Lagrange{2, RefCube, 1}());
-
-    dh = DofHandler(grid); add!(dh, :u, 1); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
 
     # Boundary conditions
     # Zero pressure on ∂Ω₁ and linear ramp followed by constant pressure on ∂Ω₂
@@ -122,4 +120,4 @@ solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTim
 
 solve_problem!(problem, solver);
 
-# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« IO: Saving and loading simulations</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Incompressible Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.0 on <span class="colophon-date" title="Friday 29 September 2023 07:51">Friday 29 September 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../io/">« IO: Saving and loading simulations</a><a class="docs-footer-nextpage" href="../incompressible_elasticity/">Incompressible Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.0 on <span class="colophon-date" title="Monday 2 October 2023 13:33">Monday 2 October 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

@@ -46,7 +46,7 @@ plts = FerriteIO("B/FerriteIO.jld2") do io
     def = FP.getdef(io)
     buf = FP.FEBuffer(def)
     post = FP.getpost(io);
-
+    
     ## Then, we get the time history and the displacement data saved to the `post` struct
     t_history = FP.gettimedata(io)
     u_mag = post.umag

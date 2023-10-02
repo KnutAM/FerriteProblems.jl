@@ -25,53 +25,56 @@ function get_grid()
 end
 
 function create_definition(;t_rise=0.1, p_max=100.0)
-
     grid = get_grid()
 
-    # Setup the interpolation and integration rules
-    dim=Ferrite.getdim(grid)
-    ip3_lin = Lagrange{dim, RefTetrahedron, 1}()
-    ip4_lin = Lagrange{dim, RefCube, 1}()
-    ip3_quad = Lagrange{dim, RefTetrahedron, 2}()
-    ip4_quad = Lagrange{dim, RefCube, 2}()
-    qr3 = QuadratureRule{dim, RefTetrahedron}(1)
-    qr4 = QuadratureRule{dim, RefCube}(2)
+    # Define interpolations
+    ipu_quad = Lagrange{RefQuadrilateral,2}()^2
+    ipu_tri  = Lagrange{RefTriangle,2}()^2
+    ipp_quad = Lagrange{RefQuadrilateral,1}()
+    ipp_tri  = Lagrange{RefTriangle,1}()
 
-    # Setup the MixedDofHandler
-    dh = MixedDofHandler(grid)
-    fh1 = FieldHandler([Field(:u, ip3_quad, dim)], getcellset(grid,"solid3"))
-    add!(dh, fh1)
-    fh2 = FieldHandler([Field(:u, ip4_quad, dim)], getcellset(grid,"solid4"))
-    add!(dh, fh2)
-    fh3 = FieldHandler([Field(:u, ip3_quad, dim), Field(:p, ip3_lin, 1)], getcellset(grid,"porous3"))
-    add!(dh, fh3)
-    fh4 = FieldHandler([Field(:u, ip4_quad, dim), Field(:p, ip4_lin, 1)], getcellset(grid,"porous4"))
-    add!(dh, fh4)
+    # Quadrature rules
+    qr_quad = QuadratureRule{RefQuadrilateral}(2)
+    qr_tri  = QuadratureRule{RefTriangle}(2)
+
+    # CellValues
+    cvu_quad = CellValues(qr_quad, ipu_quad)
+    cvu_tri = CellValues(qr_tri, ipu_tri)
+    cvp_quad = CellValues(qr_quad, ipp_quad)
+    cvp_tri = CellValues(qr_tri, ipp_tri)
+
+    # Setup the DofHandler
+    dh = DofHandler(grid)
+    # Solid quads
+    sdh_solid_quad = SubDofHandler(dh, getcellset(grid,"solid4"))
+    add!(sdh_solid_quad, :u, ipu_quad)
+    # Solid triangles
+    sdh_solid_tri = SubDofHandler(dh, getcellset(grid,"solid3"))
+    add!(sdh_solid_tri, :u, ipu_tri)
+    # Porous quads
+    sdh_porous_quad = SubDofHandler(dh, getcellset(grid, "porous4"))
+    add!(sdh_porous_quad, :u, ipu_quad)
+    add!(sdh_porous_quad, :p, ipp_quad)
+    # Porous triangles
+    sdh_porous_tri = SubDofHandler(dh, getcellset(grid, "porous3"))
+    add!(sdh_porous_tri, :u, ipu_tri)
+    add!(sdh_porous_tri, :p, ipp_tri)
+
     close!(dh)
 
     # Setup each domain
     domains = Dict{String,DomainSpec}()
     # Solid domain with Triangle elements, quadratic displacement interpolation
-    sdh1 = FerriteAssembly.SubDofHandler(dh, fh1)
-    cv1 = CellVectorValues(qr3, ip3_quad, ip3_lin)
-    domains["solid3"] = DomainSpec(sdh1, elastic_material(), cv1)
+    domains["solid3"] = DomainSpec(sdh_solid_tri, elastic_material(), cvu_tri)
 
     # Solid domain with Quadrilateral elements, quadratic displacement interpolation
-    sdh2 = FerriteAssembly.SubDofHandler(dh, fh2)
-    cv2 = CellVectorValues(qr4, ip4_quad, ip4_lin)
-    domains["solid4"] = DomainSpec(sdh2, elastic_material(), cv2)
+    domains["solid4"] = DomainSpec(sdh_solid_quad, elastic_material(), cvu_quad)
 
     # Porous domain with Triangle elements
-    # Taylor hood: (quadratic displacement and linear pressure interpolation)
-    sdh3 = FerriteAssembly.SubDofHandler(dh, fh3)
-    cv3 = (u=CellVectorValues(qr3, ip3_quad, ip3_lin), p=CellScalarValues(qr3, ip3_lin))
-    domains["porous3"] = DomainSpec(sdh3, poroelastic_material(), cv3)
+    domains["porous3"] = DomainSpec(sdh_porous_tri, poroelastic_material(), (u=cvu_tri, p=cvp_tri))
 
     # Porous domain with Quadrilateral elements
-    # Taylor hood: (quadratic displacement and linear pressure interpolation)
-    sdh4 = FerriteAssembly.SubDofHandler(dh, fh4)
-    cv4 = (u=CellVectorValues(qr4, ip4_quad, ip4_lin), p=CellScalarValues(qr4, ip4_lin))
-    domains["porous4"] = DomainSpec(sdh4, poroelastic_material(), cv4)
+    domains["porous4"] = DomainSpec(sdh_porous_quad, poroelastic_material(), (u=cvu_quad, p=cvp_quad))
 
     # Add boundary conditions
     ch = ConstraintHandler(dh);
