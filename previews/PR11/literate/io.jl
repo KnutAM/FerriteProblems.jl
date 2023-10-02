@@ -43,8 +43,7 @@ end
 # We do everything inside a do-block to ensure everything is closed at the end 
 # (even if an error is thrown)
 plts = FerriteIO("B/FerriteIO.jld2") do io
-    #def = FP.getdef(io)
-    def = setup_problem_definition() # temp solution while waiting for custom serialization.
+    def = FP.getdef(io)
     buf = FP.FEBuffer(def)
     post = FP.getpost(io);
     

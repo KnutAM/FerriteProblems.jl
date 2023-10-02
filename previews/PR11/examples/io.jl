@@ -22,8 +22,7 @@ function FerriteAssembly.integrate_cell!(cs::CellStress, state, ae, m::J2Plastic
 end
 
 plts = FerriteIO("B/FerriteIO.jld2") do io
-    #def = FP.getdef(io)
-    def = setup_problem_definition() # temp solution while waiting for custom serialization.
+    def = FP.getdef(io)
     buf = FP.FEBuffer(def)
     post = FP.getpost(io);
 
