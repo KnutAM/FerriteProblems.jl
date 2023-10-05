@@ -32,7 +32,7 @@ struct FEDefinition{DH,CH,LH,CC}
     domains # DomainSpec or Dict{String, DomainSpec}
 end
 _extract_dofhandler(domain::DomainSpec) = domain.sdh.dh
-_extract_dofhandler(domains::Dict{String, DomainSpec}) = first(values(domains)).sdh.dh
+_extract_dofhandler(domains::Dict{String, <:DomainSpec}) = first(values(domains)).sdh.dh
 function FEDefinition(domain::Union{DomainSpec, Dict{String, <:DomainSpec}}; 
         ch, lh=LoadHandler(_extract_dofhandler(domain)),
         convergence_criterion=AbsoluteResidual(), initial_conditions=NamedTuple(), 
