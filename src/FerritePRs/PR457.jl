@@ -9,7 +9,7 @@ function global_dof_range(dh::DofHandler, field_name::Symbol)
     return sort!(collect(Int, dofs))
 end
 function _global_dof_range!(dofs, sdh::SubDofHandler, field_name)
-    cellset = getcellset(sdh)
+    cellset = sdh.cellset
     eldofs = celldofs(sdh, first(cellset))
     field_range = dof_range(sdh, field_name)
     for i in cellset
