@@ -94,6 +94,7 @@ function FESolvers.calculate_convergence_measure(cc::RelativeResidualElementScal
     getminfactor(minfactors::Union{Dict{Symbol},NamedTuple}, fieldname::Symbol) = minfactors[fieldname]
     minfactors = cc.minfactors
     for (key, dofs) in ts.buffer 
+        length(dofs) == 0 && continue
         factor = max(factors[key], getminfactor(minfactors, key))
         val += sum(i->(r[i]/factor)^2, dofs)    # Inside loop for better accuracy
     end
