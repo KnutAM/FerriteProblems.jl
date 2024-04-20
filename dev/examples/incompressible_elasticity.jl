@@ -131,7 +131,8 @@ struct IE_PostProcessing
     vtk_file::String
 end
 
-function FESolvers.postprocess!(post::IE_PostProcessing, p, step, solver)
+function FESolvers.postprocess!(post::IE_PostProcessing, p, solver)
+    step = FESolvers.get_step(solver)
     step == 1 && return nothing # We don't want to save the initial conditions.
     dh = FP.get_dofhandler(p)
     vtk_grid(post.vtk_file, dh) do vtkfile

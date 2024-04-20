@@ -101,7 +101,8 @@ function PM_PostProcess(filestem="porous_media")
     return PM_PostProcess(pvd, filestem)
 end
 
-function FESolvers.postprocess!(post::PM_PostProcess, p, step, solver)
+function FESolvers.postprocess!(post::PM_PostProcess, p, solver)
+    step = FESolvers.get_step(solver)
     vtk_grid("$(post.filestem)-$step", FP.get_dofhandler(p)) do vtk
         vtk_point_data(vtk, FP.get_dofhandler(p), FP.getunknowns(p))
         vtk_save(vtk)

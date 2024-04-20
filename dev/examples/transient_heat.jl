@@ -37,7 +37,8 @@ struct TH_PostProcessing{PVD}
 end
 TH_PostProcessing() = TH_PostProcessing(paraview_collection("transient-heat.pvd"));
 
-function FESolvers.postprocess!(post::TH_PostProcessing, p, step, solver)
+function FESolvers.postprocess!(post::TH_PostProcessing, p, solver)
+    step = FESolvers.get_step(solver)
     if step < 5 || mod(step, 20) == 0
         @info "postprocessing step $step"
         dh = FP.get_dofhandler(p)

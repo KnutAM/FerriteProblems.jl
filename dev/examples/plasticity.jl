@@ -40,7 +40,7 @@ struct PlasticityPostProcess{T}
 end
 PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 
-function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
+function FESolvers.postprocess!(post::PlasticityPostProcess, p, solver)
     # p::FerriteProblem
     # First, we save some values directly in the `post` struct
     push!(post.tmag, traction_function(zero(Vec{3}), FP.get_time(p), zero(Vec{3}))[3])
