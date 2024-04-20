@@ -202,7 +202,7 @@ end
 Optional overload which is called when the problem doesn't converge for the current attempt. 
 Allows for example to modify the problem or add special postprocessing to investigate convergence issues. 
 
-!!! Note
+!!! note
     If the problem is modified, and an adaptive time stepper is used, the adaptive time stepper 
     will still consider the problem as not converged, and adapt the time-stepping accordingly.
     Currently, there is no interface to prevent this, and usage with a fixed time stepping might
