@@ -74,7 +74,7 @@ PlasticityPostProcess() = PlasticityPostProcess(Float64[], Float64[]);
 # via `FerriteProblems.` (or `FP.` if using the `import FerriteProblems as FP` above).
 # For convenience, `FerriteProblems` will call `FESolvers.postprocess!` with the 
 # `post` as the first argument making it easy to dispatch on: 
-function FESolvers.postprocess!(post::PlasticityPostProcess, p, step, solver)
+function FESolvers.postprocess!(post::PlasticityPostProcess, p, solver)
     ## p::FerriteProblem
     ## First, we save some values directly in the `post` struct
     push!(post.tmag, traction_function(zero(Vec{3}), FP.get_time(p), zero(Vec{3}))[3])

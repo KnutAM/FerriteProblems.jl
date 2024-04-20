@@ -51,7 +51,8 @@ FerriteProblems.get_old_time
 
 ## Saving and loading data
 ```@docs
-FESolvers.postprocess!
+FESolvers.handle_notconverged!(::Any, ::FerriteProblem, ::Any)
+FESolvers.postprocess!(::Any, ::FerriteProblem, ::Any)
 FerriteProblems.close_postprocessing
 FerriteProblems.addstep!
 FerriteProblems.gettimedata

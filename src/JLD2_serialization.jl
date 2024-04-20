@@ -28,7 +28,7 @@ function JLD2.convert(::Type{SerializedDofHandler}, dh::Ferrite.DofHandler)
             ip = Ferrite.getfieldinterpolation(sdh, name)
             push!(fields, name=>ip)
         end
-        push!(subdofhandlers, SerializedSubDofHandler(getcellset(sdh), fields))
+        push!(subdofhandlers, SerializedSubDofHandler(sdh.cellset, fields))
     end
     return SerializedDofHandler(dh.grid, subdofhandlers)
 end

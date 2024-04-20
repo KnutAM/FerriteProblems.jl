@@ -55,25 +55,32 @@ function Base.show(io::IO, p::FerriteProblem)
 end
 
 """
-    FESolvers.postprocess!(p::FerriteProblem, step, solver)
+    FESolvers.postprocess!(p::FerriteProblem, solver)
 
 When `FESolvers` call this function for `p::FerriteProblem`, 
 the following function
 
-    FESolvers.postprocess!(post, p::FerriteProblem, step, solver)
+    FESolvers.postprocess!(post, p::FerriteProblem, solver)
 
 is called where `post=p.post` (unless you define a different override). 
 This allows you to easily define the dispatch on your postprocessing 
-type as `FESolvers.postprocess!(post::MyPostType, p, step, solver)`
-Note that the `solver` input argument is required, but can be 
-accounted for by defining, e.g. 
-`FESolvers.postprocess!(post::MyPostType, p, step, args...)`
+type as `FESolvers.postprocess!(post::MyPostType, p, solver)`
 """
-function FESolvers.postprocess!(p::FerriteProblem, step, solver)
-    return FESolvers.postprocess!(p.post, p, step, solver)
-end
-function FESolvers.postprocess!(::Nothing, ::FerriteProblem, args...)
+FESolvers.postprocess!(::Any, ::FerriteProblem, ::Any)
+
+function FESolvers.postprocess!(::Nothing, ::FerriteProblem, ::Any)
     return nothing
+end
+
+function FESolvers.postprocess!(p::FerriteProblem, solver)
+    if applicable(FESolvers.postprocess!, p.post, p, solver)
+        return FESolvers.postprocess!(p.post, p, solver)
+    elseif applicable(FESolvers.postprocess!, p.post, p, FESolvers.get_step(solver), solver)
+        @warn "`postprocess!(post, ::FerriteProblem, step, solver)` is deprecated, overload `postprocess!(post, ::FerriteProblem, solver)` instead" maxlog=1
+        return FESolvers.postprocess!(p.post, p, FESolvers.get_step(solver), solver)
+    else
+        throw(MethodError(FESolvers.postprocess!, (p.post, p, solver)))
+    end
 end
 
 # FEDefinition: Make functions work directly on `problem`:
@@ -188,5 +195,22 @@ function FESolvers.handle_converged!(p::FerriteProblem)
     update_states!(p)
     update_unknowns!(p)
 end
+
+"""
+    FESolvers.handle_notconverged!(post, p::FerriteProblem, solver)
+
+Optional overload which is called when the problem doesn't converge for the current attempt. 
+Allows for example to modify the problem or add special postprocessing to investigate convergence issues. 
+
+!!! Note
+    If the problem is modified, and an adaptive time stepper is used, the adaptive time stepper 
+    will still consider the problem as not converged, and adapt the time-stepping accordingly.
+    Currently, there is no interface to prevent this, and usage with a fixed time stepping might
+    make more sense. However, by modifying the `solver`'s state, it is possible to trick the 
+    adaptive time stepper to not modify the time step, but this requires using non-stable and non-public API.
+"""
+FESolvers.handle_notconverged!(::Any, p::FerriteProblem, solver) = nothing # Default to nothing
+
+FESolvers.handle_notconverged!(p::FerriteProblem, solver) = FESolvers.handle_notconverged!(p.post, p, solver)
 
 end

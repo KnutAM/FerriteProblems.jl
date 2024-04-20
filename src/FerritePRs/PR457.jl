@@ -20,4 +20,3 @@ function _global_dof_range!(dofs, sdh::SubDofHandler, field_name)
         end
     end
 end
- 
