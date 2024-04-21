@@ -53,10 +53,10 @@ function FESolvers.calculate_convergence_measure(::AbsoluteResidual, ts, r, Δa,
 end
 
 """
-    RelativeResidualElementScaling(p, minfactors::Union{AbstractFloat,NamedTuple}=eps())
+    RelativeResidualElementScaling(;p = 2, minfactors::Union{AbstractFloat,NamedTuple}=eps())
 
 Use `Ferriteassembly.ElementResidualScaling` with the exponent `p` to calculate the 
-scaling for each field individually, based on the L2-norm of each cell's residual. 
+scaling for each field individually, based on the Lp-norm of each cell's residual. 
 To avoid issues when all cells have zero residual (e.g. in the first time step),
 supply `minfactors` as the minimum scaling factor. 
 The convergence measure is calculated with the following pseudo-code
@@ -71,11 +71,12 @@ return √val
 ```
 where the same `minfactor` is used for all fields if only a scalar value is given. 
 """
-struct RelativeResidualElementScaling{T,F<:Union{AbstractFloat,Dict{Symbol},NamedTuple}} <: ConvergenceCriterion
+struct RelativeResidualElementScaling{T,F<:Union{AbstractFloat,Dict{Symbol},NamedTuple}, LT<:Val} <: ConvergenceCriterion
     p::T
     minfactors::F
+    log_calculations::LT
 end 
-RelativeResidualElementScaling(;p=Val(2), minfactors=eps()) = RelativeResidualElementScaling(p, minfactors)
+RelativeResidualElementScaling(;p=Val(2), minfactors=eps(), log_calculations::Val=Val(false)) = RelativeResidualElementScaling(p, minfactors, log_calculations)
 
 make_assemscaling(criterion::RelativeResidualElementScaling, def) = ElementResidualScaling(get_dofhandler(def), criterion.p)
 
@@ -92,11 +93,16 @@ function FESolvers.calculate_convergence_measure(cc::RelativeResidualElementScal
     factors = ts.assemscaling.factors
     getminfactor(minfactors, args...) = minfactors
     getminfactor(minfactors::Union{Dict{Symbol},NamedTuple}, fieldname::Symbol) = minfactors[fieldname]
+    log = isa(cc.log_calculations, Val{true}) # Should become a Core.Const
     minfactors = cc.minfactors
+    log && println("convergence measure for each field")
     for (key, dofs) in ts.buffer 
         length(dofs) == 0 && continue
         factor = max(factors[key], getminfactor(minfactors, key))
-        val += sum(i->(r[i]/factor)^2, dofs)    # Inside loop for better accuracy
+        contribution = sum(i->(r[i]/factor)^2, dofs)    # Inside loop for better accuracy
+        log && println(key, ": ", sqrt(contribution), " (factor = ", factor, ")")
+        val += contribution
     end
+    log && println("")
     return sqrt(val)
 end
