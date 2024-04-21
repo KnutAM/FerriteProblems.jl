@@ -34,19 +34,19 @@ FerriteProblems.make_assemscaling
 
 ## Access functions
 ```@docs
-FerriteProblems.get_dofhandler
-FerriteProblems.get_constrainthandler
-FerriteProblems.get_loadhandler
-FerriteProblems.get_material
-FerriteProblems.getjacobian
-FerriteProblems.getunknowns
-FerriteProblems.getresidual
-FerriteProblems.get_external_force
-FerriteProblems.get_old_unknowns
-FerriteProblems.get_state
-FerriteProblems.get_old_state
-FerriteProblems.get_time
-FerriteProblems.get_old_time
+FerriteProblems.get_dofhandler(::FEDefinition)
+FerriteProblems.get_constrainthandler(::FEDefinition)
+FerriteProblems.get_loadhandler(::FEDefinition)
+FerriteProblems.get_material(::FEBuffer, args...)
+FerriteProblems.getjacobian(::FEBuffer)
+FerriteProblems.getunknowns(::FEBuffer)
+FerriteProblems.getresidual(::FEBuffer)
+FerriteProblems.get_external_force(::FEBuffer)
+FerriteProblems.get_old_unknowns(::FEBuffer)
+FerriteProblems.get_state(::FEBuffer)
+FerriteProblems.get_old_state(::FEBuffer)
+FerriteProblems.get_time(::FEBuffer)
+FerriteProblems.get_old_time(::FEBuffer)
 ```
 
 ## Saving and loading data

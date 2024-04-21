@@ -137,7 +137,9 @@ addstep!(io::FerriteIO, p::FerriteProblem) = addstep!(io, get_time(p))
 # * calculate_convergence_measure
 # * handle_converged!
 
-function FESolvers.update_to_next_step!(p::FerriteProblem, time)
+FESolvers.update_to_next_step!(p::FerriteProblem, time) = FESolvers.update_to_next_step!(p.post, p::FerriteProblem, time)
+    
+function FESolvers.update_to_next_step!(::Any, p::FerriteProblem, time)
     ch = get_constrainthandler(p)
     # Update the current time
     set_time!(p, time)
@@ -154,7 +156,14 @@ function FESolvers.update_to_next_step!(p::FerriteProblem, time)
     apply_zero!(f, ch) # Make force zero at constrained dofs (to be compatible with apply local)
 end
 
-function FESolvers.update_problem!(p::FerriteProblem, Δa, update_spec)
+"""
+    FESolvers.update_problem!(post, p::FerriteProblem, Δa::AbstractVector, update_spec::FESolvers.UpdateSpec)
+
+This function can be overloaded if a custom problem update is desired. 
+It is also possible to apply pre- or post-processing before the call, by calling with
+`post = nothing` to get the default behavior inside an overloaded method. 
+"""
+function FESolvers.update_problem!(::Any, p::FerriteProblem, Δa, update_spec)
     # Update a if Δa is given
     a = FESolvers.getunknowns(p)
     ch = get_constrainthandler(p)
@@ -182,19 +191,37 @@ function FESolvers.update_problem!(p::FerriteProblem, Δa, update_spec)
     apply_zero!(K, r, ch)
     return nothing
 end
+FESolvers.update_problem!(p::FerriteProblem, Δa, update_spec) = FESolvers.update_problem!(p.post, p, Δa, update_spec)
 
-function FESolvers.calculate_convergence_measure(p::FerriteProblem, Δa, iter)
+"""
+    FESolvers.calculate_convergence_measure(post, p::FerriteProblem, Δa::AbstractVector, iter::Int)
+
+This function can be overloaded if a custom convergence measure should be calculated. 
+It is also possible to apply pre- or post-processing before the call, by calling with 
+`post = nothing` to get the default behavior inside an overloaded method. 
+"""
+function FESolvers.calculate_convergence_measure(::Any, p::FerriteProblem, Δa, iter)
     ts = get_tolerance_scaling(p)
     r = FESolvers.getresidual(p)
     return FESolvers.calculate_convergence_measure(ts, r, Δa, iter, p)
 end
+FESolvers.calculate_convergence_measure(p::FerriteProblem, Δa, iter) = FESolvers.calculate_convergence_measure(p.post, p, Δa, iter)
 
-function FESolvers.handle_converged!(p::FerriteProblem)
+
+"""
+    FESolvers.handle_converged!(post, p::FerriteProblem)
+
+This function can be overloaded if a custom handling of a converged state is desired. 
+It is also possible to apply pre- or post-processing before the call, by calling with 
+`post = nothing` to get the default behavior inside an overloaded method. 
+"""
+function FESolvers.handle_converged!(::Any, p::FerriteProblem)
     # Set old = current
     update_time!(p)
     update_states!(p)
     update_unknowns!(p)
 end
+FESolvers.handle_converged!(p::FerriteProblem) = FESolvers.handle_converged!(p.post, p) 
 
 """
     FESolvers.handle_notconverged!(post, p::FerriteProblem, solver)
