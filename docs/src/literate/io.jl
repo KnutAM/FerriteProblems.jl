@@ -83,9 +83,9 @@ plts = FerriteIO("B/FerriteIO.jld2") do io
     ## Finally, cs now contains the von mises stress 
     ## of each cell at the last step, which we save to vtk.
     u = FP.getdofdata(io, length(t_history))
-    vtk_grid("plasticity", dh) do vtkfile
-        vtk_point_data(vtkfile, dh, u) # displacement field
-        vtk_cell_data(vtkfile, cs.σvm, "von Mises [Pa]")
+    VTKGridFile("plasticity", dh) do vtkfile
+        write_solution(vtkfile, dh, u) # displacement field
+        write_cell_data(vtkfile, cs.σvm, "von Mises [Pa]")
     end;
     ## Return the plots 
     (plt1, plt2)

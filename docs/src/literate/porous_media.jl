@@ -122,7 +122,7 @@
 #md # the final [section](@ref porous-media-plain-program)
 # 
 # Required packages
-using Ferrite, FerriteMeshParser, Tensors
+using Ferrite, FerriteMeshParser, Tensors, WriteVTK
 using FerriteAssembly, FerriteProblems, FESolvers
 using MaterialModelsBase
 import FerriteProblems as FP
@@ -131,8 +131,8 @@ import FerriteAssembly.ExampleElements: ElasticPlaneStrain, PoroElasticPlaneStra
 # ## Physics
 # Both the elastic material and a poroelastic material is available in
 # `FerriteAssembly.ExampleElements`:
-elastic_material() = ElasticPlaneStrain(;E=2.e3, ν=0.3)
-poroelastic_material() = PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0, β=1/2e3)
+elastic_material() = ElasticPlaneStrain(;E=20e3, ν=0.3)
+poroelastic_material() = PoroElasticPlaneStrain(;E=10e3, ν=0.3, k=5e-3, α=0.9, β=1/15e3)
 
 # ## Problem definition
 # ### Mesh import
@@ -144,7 +144,7 @@ poroelastic_material() = PoroElasticPlaneStrain(;E=2.e3, ν=0.3, k=0.05, α=1.0,
 # for each element type. These 4 sets will later be used in their own `FieldHandler`
 function get_grid()
     ## Import grid from abaqus mesh
-    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media", "porous_media_0p75.inp"))
+    grid = get_ferrite_grid(joinpath(@__DIR__, "porous_media", "porous_media_0p25.inp"))
 
     ## Create cellsets for each fieldhandler
     addcellset!(grid, "solid3", intersect(getcellset(grid, "solid"), getcellset(grid, "CPS3")))
@@ -153,8 +153,8 @@ function get_grid()
     addcellset!(grid, "porous4", intersect(getcellset(grid, "porous"), getcellset(grid, "CPS4R")))
 
     ## Create faceset for the sides and top 
-    addfaceset!(grid, "sides", x->(first(x) < eps() || first(x) ≈ 5.0))
-    addfaceset!(grid, "top", x->(last(x) ≈ 10.0))
+    addfacetset!(grid, "sides", x->(first(x) < eps() || first(x) ≈ 5.0))
+    addfacetset!(grid, "top", x->(last(x) ≈ 10.0))
     return grid
 end
 
@@ -215,15 +215,15 @@ function create_definition(;t_rise=0.1, p_max=100.0)
     ## Add boundary conditions
     ch = ConstraintHandler(dh);
     ## Fix bottom in y and sides in x
-    add!(ch, Dirichlet(:u, getfaceset(grid, "bottom"), Returns(0.0), [2]))
-    add!(ch, Dirichlet(:u, getfaceset(grid, "sides"), Returns(0.0), [1]))
+    add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), Returns(0.0), [2]))
+    add!(ch, Dirichlet(:u, getfacetset(grid, "sides"), Returns(0.0), [1]))
     ## Zero pressure on top surface
-    add!(ch, Dirichlet(:p, getfaceset(grid, "top"), Returns(0.0)))
+    add!(ch, Dirichlet(:p, getfacetset(grid, "top"), Returns(0.0)))
     close!(ch)
 
     ## Add Neumann boundary conditions - normal traction on top
     lh = LoadHandler(dh);
-    add!(lh, Neumann(:u, 2, getfaceset(grid, "top"), (x,t,n) -> -n*clamp(t/t_rise,0,1)*p_max))
+    add!(lh, Neumann(:u, 2, getfacetset(grid, "top"), (x,t,n) -> -n*clamp(t/t_rise,0,1)*p_max))
 
     return FEDefinition(domains; ch, lh)
 end;
@@ -240,9 +240,9 @@ end
 
 function FESolvers.postprocess!(post::PM_PostProcess, p, solver)
     step = FESolvers.get_step(solver)
-    vtk_grid("$(post.filestem)-$step", FP.get_dofhandler(p)) do vtk
-        vtk_point_data(vtk, FP.get_dofhandler(p), FP.getunknowns(p))
-        vtk_save(vtk)
+    VTKGridFile("$(post.filestem)-$step", FP.get_dofhandler(p)) do vtk
+        write_solution(vtk, FP.get_dofhandler(p), FP.getunknowns(p))
+        close(vtk)
         post.pvd[step] = vtk 
     end
 end
@@ -250,11 +250,14 @@ end
 FP.close_postprocessing(post::PM_PostProcess, args...) = vtk_save(post.pvd);
 
 # ## Solving
-# We solve the problem by using linearly increasing time steps
+# We solve the problem by using non-uniform but fixed time steps
 problem = FerriteProblem(create_definition(), PM_PostProcess())
 solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper(map(x->x^2, range(0, 1, 41))))
 solve_problem!(problem, solver)
 
+## test the result                 #src
+using Test                         #src
+@test norm(FESolvers.getunknowns(problem)) ≈ 709.4756402834975 #src
 
 #md # ## [Plain program](@id porous-media-plain-program)
 #md #

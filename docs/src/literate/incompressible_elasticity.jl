@@ -22,29 +22,29 @@ function create_cook_grid(nx, ny)
                Vec{2}((0.0,  44.0))]
     grid = generate_grid(Triangle, (nx, ny), corners);
     ## facesets for boundary conditions
-    addfaceset!(grid, "clamped", x -> norm(x[1]) ≈ 0.0);
-    addfaceset!(grid, "traction", x -> norm(x[1]) ≈ 48.0);
+    addfacetset!(grid, "clamped", x -> norm(x[1]) ≈ 0.0);
+    addfacetset!(grid, "traction", x -> norm(x[1]) ≈ 48.0);
     return grid
 end;
 
-# Next we define a function to set up our cell- and facevalues.
+# Next we define a function to set up our cell- and FacetValues.
 function create_values(ipu, ipp)
     RefShape = Ferrite.getrefshape(ipu)
     ## quadrature rules
     qr      = QuadratureRule{RefShape}(3)
-    face_qr = FaceQuadratureRule{RefShape}(3)
+    face_qr = FacetQuadratureRule{RefShape}(3)
 
     ## geometric interpolation
     ip_geo = Lagrange{RefShape,1}()
 
-    ## cell and facevalues for u
+    ## cell and FacetValues for u
     cellvalues_u = CellValues(qr, ipu, ip_geo)
-    facevalues_u = FaceValues(face_qr, ipu, ip_geo)
+    FacetValues_u = FacetValues(face_qr, ipu, ip_geo)
 
     ## cellvalues for p
     cellvalues_p = CellValues(qr, ipp, ip_geo)
 
-    return cellvalues_u, cellvalues_p, facevalues_u
+    return cellvalues_u, cellvalues_p, FacetValues_u
 end;
 
 
@@ -79,7 +79,7 @@ function create_definition(ν, ip_u, ip_p)
     grid = create_cook_grid(50, 50)
     dh = create_dofhandler(grid, ip_u, ip_p)
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(dh.grid, "clamped"), Returns(zero(Vec{2}))))
+    add!(ch, Dirichlet(:u, getfacetset(dh.grid, "clamped"), Returns(zero(Vec{2}))))
     close!(ch)
     update!(ch, 0.0)
 
@@ -87,7 +87,7 @@ function create_definition(ν, ip_u, ip_p)
     cv = (u=cv_u, p=cv_p)   # Create NamedTuple
 
     lh = LoadHandler(dh)
-    add!(lh, Neumann(:u, fv, getfaceset(grid, "traction"), (x,t,n)->Vec{2}((0.0, 1/16))))
+    add!(lh, Neumann(:u, fv, getfacetset(grid, "traction"), (x,t,n)->Vec{2}((0.0, 1/16))))
 
     m = LinearElasticity(;Emod=1.0, ν=ν)
     
@@ -159,32 +159,34 @@ function FESolvers.postprocess!(post::IE_PostProcessing, p, solver)
     step = FESolvers.get_step(solver)
     step == 1 && return nothing # We don't want to save the initial conditions. 
     dh = FP.get_dofhandler(p)
-    vtk_grid(post.vtk_file, dh) do vtkfile
-        vtk_point_data(vtkfile, dh, FP.getunknowns(p))
+    VTKGridFile(post.vtk_file, dh) do vtk
+        write_solution(vtk, dh, FP.getunknowns(p))
     end
 end;
 
 # ## Solving the problem
 function build_problem(;ν, ip_u, ip_p)
     def = create_definition(ν, ip_u, ip_p)
-    ip_u_string = isa(ip_u, Lagrange{2,RefTetrahedron,1}) ? "linear" : "quadratic"
+    ip_u_string = isa(ip_u, Lagrange{RefTriangle, 1}) ? "linear" : "quadratic"
     post = IE_PostProcessing("cook_$(ip_u_string)_linear")
     return FerriteProblem(def, post)
 end
 
-solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper=FixedTimeStepper([0.0,1.0]))
+timestepper = FixedTimeStepper([0.0,1.0])
+solver = QuasiStaticSolver(;nlsolver=LinearProblemSolver(), timestepper)
 ν = 0.4999999
-linear    = Lagrange{2,RefTetrahedron,1}()
-quadratic = Lagrange{2,RefTetrahedron,2}()
+linear    = Lagrange{RefTriangle, 1}()
+quadratic = Lagrange{RefTriangle, 2}()
 p1 = build_problem(;ν, ip_u=linear^2,    ip_p=linear)
 p2 = build_problem(;ν, ip_u=quadratic^2, ip_p=linear)
 solve_problem!(p1, solver)
+FESolvers.reset_timestepper!(timestepper)
 solve_problem!(p2, solver)
 
 ## delete the output                        #src
 # Comment out if needed                     #src
-rm("cook_linear_linear.vtu"; force=true)    #src
-rm("cook_quadratic_linear.vtu"; force=true) #src
+#rm("cook_linear_linear.vtu"; force=true)    #src
+#rm("cook_quadratic_linear.vtu"; force=true) #src
 
 ## test the result                 #src
 using Test                         #src

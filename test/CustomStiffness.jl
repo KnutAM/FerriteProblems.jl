@@ -30,7 +30,7 @@ end
     m = CustomStiffness(mw, :positive)
     buffer = setup_domainbuffer(DomainSpec(dh, m, cv))
     buffer_ad = setup_domainbuffer(DomainSpec(dh, m, cv); autodiffbuffer=true)
-    K = create_sparsity_pattern(dh)
+    K = allocate_matrix(dh)
     r = zeros(ndofs(dh))
     a = rand(ndofs(dh))
 

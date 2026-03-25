@@ -20,7 +20,7 @@ function FEBuffer(def::FEDefinition; kwargs...)
     dh = get_dofhandler(def)
     ch = get_constrainthandler(def)
     n = ndofs(dh)
-    K = create_sparsity_pattern(dh, ch)
+    K = allocate_matrix(dh, ch)
     x, r, f = zeros.((n,n,n))
     ic = def.initial_conditions # ::NamedTuple 
     foreach((field_name, fun)->apply_analytical!(x, dh, field_name, fun), keys(ic), values(ic))

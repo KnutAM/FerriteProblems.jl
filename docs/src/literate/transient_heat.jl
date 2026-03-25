@@ -41,9 +41,9 @@ function create_definition()
     ## Zero pressure on ∂Ω₁ and linear ramp followed by constant pressure on ∂Ω₂
     max_temp = 100; t_rise = 100
     ch = ConstraintHandler(dh);
-    ∂Ω₁ = union(getfaceset.((grid,), ["left", "right"])...)
+    ∂Ω₁ = union(getfacetset.((grid,), ["left", "right"])...)
     add!(ch, Dirichlet(:u, ∂Ω₁, (x, t) -> 0));
-    ∂Ω₂ = union(getfaceset.((grid,), ["top", "bottom"])...)
+    ∂Ω₂ = union(getfacetset.((grid,), ["top", "bottom"])...)
     add!(ch, Dirichlet(:u, ∂Ω₂, (x, t) -> max_temp * clamp(t / t_rise, 0, 1)))
     close!(ch)
 
@@ -71,9 +71,9 @@ function FESolvers.postprocess!(post::TH_PostProcessing, p, solver)
     if step < 5 || mod(step, 20) == 0
         @info "postprocessing step $step"
         dh = FP.get_dofhandler(p)
-        vtk_grid("transient-heat-$step", dh) do vtk
-            vtk_point_data(vtk, dh, FP.getunknowns(p))
-            vtk_save(vtk)
+        VTKGridFile("transient-heat-$step", dh) do vtk
+            write_solution(vtk, dh, FP.getunknowns(p))
+            close(vtk)
             post.pvd[step] = vtk
         end
     end

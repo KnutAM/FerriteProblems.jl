@@ -37,17 +37,17 @@ function setup_problem_definition()
 
     ## Grid and degrees of freedom (`Ferrite.jl`)
     grid = generate_grid(Tetrahedron, (20,2,4), zero(Vec{3}), Vec((10.,1.,1.)))
-    dh = DofHandler(grid); push!(dh, :u, ip); close!(dh)
+    dh = DofHandler(grid); add!(dh, :u, ip); close!(dh)
 
     ## Constraints (Dirichlet boundary conditions, `Ferrite.jl`)
     ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfaceset(grid, "left"), Returns(zero(Vec{3}))))
+    add!(ch, Dirichlet(:u, getfacetset(grid, "left"), Returns(zero(Vec{3}))))
     close!(ch)
 
     ## Neumann boundary conditions
     lh = LoadHandler(dh)
     quad_order = 3
-    add!(lh, Neumann(:u, quad_order, getfaceset(grid, "right"), traction_function))
+    add!(lh, Neumann(:u, quad_order, getfacetset(grid, "right"), traction_function))
 
     domainspec = DomainSpec(dh, material, cv)
     return FEDefinition(domainspec; ch, lh)
